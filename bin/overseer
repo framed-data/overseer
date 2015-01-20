@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# Usage: bin/overseer <APP_JAR> <HANDLERS> <OPTIONS>
+# Ex: bin/overseer /path/to/myapp.jar myapp.core/job-handlers -c /path/to/config.yml
+
+# TODO: error checking
+# TODO: we may have to move arg parsing in here? Ex for `bin/overseer -h`
+
+cd `dirname $0`
+
+APP_JAR=`readlink -e $1`
+OVERSEER_JAR=`readlink -e "../target/overseer-0.1.0-SNAPSHOT-standalone.jar"`
+
+CP="$APP_JAR:$OVERSEER_JAR"
+exec java -classpath $CP overseer.system ${*:2}
+
+
+#XMX=-Xmx1g
+#XMS=-Xms1g
+#JAVA_OPTS='-XX:+UseG1GC -XX:MaxGCPauseMillis=50'
+#
+#echo "Launching with Java options -server $XMS $XMX $JAVA_OPTS"
+#exec java -server -cp $CP $XMX $XMS $JAVA_OPTS clojure.main --main overseer.system "$@"
