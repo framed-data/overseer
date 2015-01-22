@@ -58,8 +58,8 @@
                              job-id)
                     status (ffirst result)]
                 (if (= :unstarted status)
-                  [[:db/add entity-id :job/status :started]
-                   [:db/add entity-id :job.status/updated-at (java.util.Date.)]]
+                  [[:db/add [:job/id job-id] :job/status :started]
+                   [:db/add [:job/id job-id] :job.status/updated-at (java.util.Date.)]]
                   (throw (Exception. "Job status not eligible for start."))))})})
 
  (defn install
