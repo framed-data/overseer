@@ -20,7 +20,7 @@
   [job-types tx]
   (zipmap
     (map identity job-types)
-    (map #(job-assertion %) job-types)))
+    (map #(job-assertion % tx) job-types)))
 
 (defn job-dep-edges [graph jobs-by-type]
   (for [[job deps] graph
@@ -60,7 +60,7 @@
            visited #{}
            to-visit #{job-ent-id}]
       (if (empty? to-visit)
-        (map #(:job/id (->job-entity db %)) all-dependents)
+        (map #(:job/id (d/entity db %)) all-dependents)
         (let [ent (first to-visit)
               dependents (ent-dependents db ent)
               all-dependents' (set/union all-dependents dependents)
