@@ -60,7 +60,7 @@
            visited #{}
            to-visit #{job-ent-id}]
       (if (empty? to-visit)
-        (map #(:job/id (d/entity db %)) all-dependents)
+        (set (map #(:job/id (d/entity db %)) all-dependents))
         (let [ent (first to-visit)
               dependents (ent-dependents db ent)
               all-dependents' (set/union all-dependents dependents)
