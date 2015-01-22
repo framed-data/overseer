@@ -51,7 +51,7 @@
   "Exception handler for job thunks; invokes the default handler,
    then returns a status keyword. Attempts to parse special signal
    status out of ex, else defaults to :failed"
-  [system job]
+  [system]
   (fn [ex]
     (let [default-handler (->default-exception-handler system)
           status (or (get (ex-data ex) :overseer/status)
@@ -79,11 +79,11 @@
       job)))
 
 (defn run-job
-  "Run a single job and transact an appropriate status update"
+  "Run a single job and return the appropriate status update txns"
   [{:keys [conn] :as system} job-handlers job]
   (let [job-id (:job/id job)
         job-handler (get job-handlers (:job/type job))
-        exit-status (try-thunk (->job-exception-handler system job)
+        exit-status (try-thunk (->job-exception-handler system)
                                (fn []
                                  (job-handler system job)
                                  :finished))
