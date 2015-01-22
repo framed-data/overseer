@@ -1,6 +1,9 @@
 (ns overseer.worker
   (:require [datomic.api :as d]
             [taoensso.timbre :as timbre]
+            (raven-clj
+               [core :as raven]
+               [interfaces :as raven.interface])
             (overseer
               [core :as core]
               [status :as status])))
@@ -10,72 +13,93 @@
 (defn signal! [sig status]
   (reset! sig status))
 
-(defn try-thunk [exception-handler fallback-value f]
+(defn try-thunk
+  "Returns the value of calling f, or of calling exception-handler
+   with any exception thrown"
+  [exception-handler f]
   (try (f)
     (catch Throwable ex
-      (exception-handler ex)
-      fallback-value)))
+      (exception-handler ex))))
 
-; TODO: why return vectors in jobs? Doesn't seem used
-(defn job-exit-status [[status & _]]
-  (get #{:aborted :finished :failed} status :finished))
-
-; TODO: filter is to only select jobs of type that are defined in the handler map?
-; Seems overly cautious
-(defn ready-job-entites [db job-handlers]
+(defn ready-job-entities [db job-handlers]
   (->> (status/jobs-ready db)
        (map (partial core/->job-entity db))
        (filter (comp job-handlers :job/type))))
 
-(defn update-job-status
-  "Transact a status update(s) for a completed job
-   If job was aborted, then also abort all its dependents"
-  [conn job status]
-  (let [db (d/db conn)
-        job-aborted (= :aborted status)
-        job-id (:job/id job)
-        job-ids (if job-aborted
-                  (conj (core/transitive-dependents db job-id) job-id)
-                  [job-id])]
-    (timbre/info "Exited job" job-id "with status" status)
-    (when job-aborted
-      (timbre/info "Found :aborted job; aborting all dependents of" job-id))
-    (d/transact conn (map (partial core/status-txn status) job-ids))))
-
-(defn reserve-job [exception-handler conn job]
-  (let [job-ent-id (:db/id job)
-        job-id (:job/id job)]
-    (try-thunk exception-handler nil
+(defn reserve-job
+  "Attempt to reserve a job and return it, or return nil on failure"
+  [exception-handler conn job]
+  (let [job-id (:job/id job)]
+    (try-thunk exception-handler
       #(do (timbre/info "Reserving job" job-id)
-           (core/reserve conn job-ent-id)
+           (core/reserve conn job-id)
            (timbre/info "Reserved job" job-id)
            job))))
 
-(defn ->job-executor
-  "Construct a function that will reserve a job off the queue and execute it
+(defn sentry-capture [dsn ex]
+  (let [extra (or (ex-data ex) {})
+        ex-map
+        (-> {:message (.getMessage ex)
+             :extra extra}
+            (raven.interface/stacktrace ex))]
+    (try (raven/capture dsn ex-map)
+      (catch Exception ex'
+        (timbre/error "Senry exception handler failed")
+        (timbre/error ex')))))
 
-   state-provider is a nullary function that returns a worker state
-   suitable for running job handlers etc; i.e. it provides {:config <conf>, ...}"
-  [config exception-handler state-provider job-handlers]
+(defn ->default-exception-handler
+  "Construct an handler function that by default logs exceptions
+   and optionally sends to Sentry if configured"
+  [{:keys [config] :as system}]
+  (fn [ex]
+    (timbre/error ex)
+    (if-let [dsn (get-in config [:sentry :dsn])]
+      (sentry-capture dsn ex))
+    nil))
+
+(defn ->job-exception-handler
+  "Exception handler for job thunks; invokes the default handler,
+   then returns a status keyword. Attempts to parse special signal
+   status out of ex, else defaults to :failed"
+  [system ex]
+  (fn [ex]
+    (let [default-handler (->default-exception-handler system)]
+      (default-handler ex)
+      (or (get (ex-data ex) :overseer/status)
+          :failed))))
+
+(defn select-and-reserve
+  "Attempt to select a ready job to run and reserve it, returning
+   nil on failure"
+  [{:keys [conn] :as system} jobs conn]
+  (let [job (core/->job-entity (d/db conn) (rand-nth jobs))
+        ex-handler (->default-exception-handler system)]
+    (when (reserve-job ex-handler conn job)
+      job)))
+
+(defn run-job
+  "Run a single job and transact an appropriate status update"
+  [{:keys [conn] :as system} job-handlers job]
+  (let [job-id (:job/id job)
+        job-handler (get job-handlers (:job/type job))
+        exit-status (try-thunk (->job-exception-handler system)
+                               #(job-handler system job))
+        txns (core/update-job-status-txns (d/db conn) job-id exit-status)]
+    (timbre/info "Exited job" job-id "with status" exit-status)
+    (when (= exit-status :aborted)
+      (timbre/info "Found :aborted job; aborting all dependents of" job-id))
+    (d/transact conn txns)))
+
+(defn ->job-executor
+  "Construct a function that will reserve a job off the queue and execute it,
+   returning nil if the queue is empty"
+  [{:keys [config conn] :as system} job-handlers]
   (fn []
-    (let [conn (d/connect (get-in config [:datomic :uri]))
-          jobs (ready-job-entites (d/db conn) job-handlers)]
+    (let [jobs (status/jobs-ready (d/db conn))]
       (when-not (empty? jobs)
         (timbre/info (count jobs) "handleable job(s) found.")
-        (let [job (rand-nth jobs)
-              ; TODO: (select-job db) ?
-              ; job-id (rand-nth (status/jobs-ready db))
-              ; job (core/->job-entity db job-id)
-              job-ent-id (:db/id job)
-              job-handler (get job-handlers (:job/type job))]
-          (when (reserve-job exception-handler conn job)
-            (let [state (state-provider)
-                  status (try-thunk exception-handler :failed
-                           ; TODO: could pass whole job here?
-                           ; or just :job/id?
-                           #(-> (job-handler state job-ent-id)
-                                (job-exit-status)))]
-              (update-job-status conn job status))))))))
+        (if-let [job (select-and-reserve system jobs conn)]
+          (run-job system job-handlers job))))))
 
 (defn run
   "Run a worker, given:
@@ -89,23 +113,15 @@
       (timbre/info ":stop received; stopping")
       (if (job-executor)
         (recur)
-        (if (= @signal :stop-when-empty)
-          (timbre/info "Empty worker queue and `:stop-when-empty` set; stopping.")
-          (do (timbre/info "No handleable jobs found.  Waiting.")
-              (Thread/sleep sleep-time)
-              (recur)))))))
+        (do (timbre/info "No handleable jobs found. Waiting.")
+            (Thread/sleep sleep-time)
+            (recur))))))
 
-(defn start! [worker-state state-provider exception-handler job-handlers signal]
+(defn start! [{:keys [config] :as system} job-handlers signal]
   (timbre/info "Worker starting!")
-  (let [config (:config worker-state)
-        job-executor (->job-executor config exception-handler state-provider job-handlers)
-        sleep-time (get config :sleep-time)]
-    (try (run job-executor signal sleep-time)
-      (catch Exception ex
-        (exception-handler ex)))))
+  (let [job-executor (->job-executor system job-handlers)
+        sleep-time (:sleep-time config)]
+    (run job-executor signal sleep-time)))
 
 (defn stop! [signal]
   (signal! signal :stop))
-
-(defn stop-when-empty! [signal]
-  (signal! signal :stop-when-empty))
