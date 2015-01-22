@@ -34,11 +34,11 @@
  (d/pull db '[:*] [:job/id job-id]))
 
 (defn reserve
-  "Return a transaction clause that reserves the given job,
-   or throws an exception.
+  "Return a transaction clause that reserves the given job, or throws an exception.
    Requires the overseer.schema/reserve-job database function to be in-schema."
-  [conn job-ent-id]
-  (d/transact conn [[:reserve-job job-ent-id]]))
+  [conn job-id]
+  {:pre [job-id]}
+  @(d/transact conn [[:reserve-job job-id]]))
 
 (defn ent-dependents
   "Find all jobs entities that depend on ent"
