@@ -2,7 +2,13 @@
   "User-facing core API"
   (:require [datomic.api :as d]
             [clojure.set :as set]
-            [overseer.core :as core]))
+            (overseer
+              [core :as core]
+              [system :as system])))
+
+(def start
+  "Alias in order to start the system as a library"
+  system/start)
 
 (defn ->graph-txn
   "Entry point to add assert a sequence of jobs into the system.
