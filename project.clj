@@ -10,16 +10,6 @@
                  [com.taoensso/timbre "3.2.1"]
                  [com.datomic/datomic-free "0.9.5130" :exclusions [joda-time]]
                  [raven-clj "1.1.0"]]
-  :profiles {
-             :dev {:dependencies [
-                                  ;[com.datomic/datomic-free "0.9.5130" :exclusions [joda-time]]
-                                  ]}
-
-             :prod {
-                    ;:dependencies [[com.datomic/datomic-pro "0.9.5078" :exclusions [joda-time]]]
-                    :jvm-opts ["-Xmx6g"]}
-
-             :uberjar {:aot :all}}
-
+  :profiles {:uberjar {:aot :all}}
   :main overseer.system
   :jvm-opts ["-XX:MaxPermSize=256m" "-Xss1m" "-Xmx4g" "-XX:+UseConcMarkSweepGC"])

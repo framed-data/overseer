@@ -43,22 +43,23 @@
 
 (def reserve-job
   "Datomic database function to atomically reserve a job.
-   Either reserves the given entity, or throws."
+   Either reserves the given job id, or throws."
   {:db/id (d/tempid :db.part/user)
    :db/ident :reserve-job
    :db/fn (datomic.function/construct
             {:lang "clojure"
-             :params '[db entity-id]
+             :params '[db job-id]
              :code
              '(let [result (datomic.api/q '[:find ?s
-                                            :in $data ?e
-                                            :where [$data ?e :job/status ?s]]
+                                            :in $data ?job-id
+                                            :where [$data ?e :job/id ?job-id]
+                                                   [$data ?e :job/status ?s]]
                              db
-                             entity-id)
-                    status (first (first result))]
+                             job-id)
+                    status (ffirst result)]
                 (if (= :unstarted status)
-                  [[:db/add entity-id :job/status :started]
-                   [:db/add entity-id :job.status/updated-at (java.util.Date.)]]
+                  [[:db/add [:job/id job-id] :job/status :started]
+                   [:db/add [:job/id job-id] :job.status/updated-at (java.util.Date.)]]
                   (throw (Exception. "Job status not eligible for start."))))})})
 
  (defn install

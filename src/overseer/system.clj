@@ -5,34 +5,9 @@
             [clj-yaml.core :as yaml]
             [datomic.api :as d]
             [taoensso.timbre :as timbre]
-            (raven-clj
-               [core :as raven]
-               [interfaces :as raven.interface])
             (overseer
               [schema :as schema]
-              [worker :as worker])
-            ))
-
-
-
-; TODO: not sure about this
-; Technically we could probably statically treat job-handlers as a symbol,
-; but that's jank and wouldn't work for state provider
-; state provider is also jank - could leave that as a user concern?
-;(def dynamic-config (atom {:job-handlers nil
-;                           :state-provider identity}))
-;
-;; TODO: not sure about this
-;(defn configure
-;  "Set the runtime configuration of the system, e.g.
-;   specify the job handler entry points into application code"
-;  [{:keys [job-handlers state-provider] :as config}]
-;  {:pre [job-handlers]}
-;  (swap! system/dynamic-config merge config))
-
-
-
-
+              [worker :as worker])))
 
 (def default-static-config
   {:datomic {:uri "datomic:free://localhost:4334/overseer"}
@@ -52,44 +27,15 @@
     {:config config
      :conn (d/connect datomic-uri)}))
 
-(defn default-exception-handler
-  "Return an exception handler function that logs errors and optionally
-   sends to Sentry if configured"
-  [config]
-  (let [capture
-        (fn [dsn ex]
-          (let [ex-map
-                (-> {:message (.getMessage ex)}
-                    (assoc :extra (or (ex-data ex) {}))
-                    (raven.interface/stacktrace ex))]
-            (try (raven/capture dsn ex-map)
-              (catch Exception ex'
-                (timbre/error "Senry exception handler failed")
-                (timbre/error ex')))))
-
-        dsn (get-in config [:sentry :dsn])]
-    (fn [ex]
-      (timbre/error ex)
-      (when dsn
-        (capture dsn ex)))))
-
-
-; TODO: state provider??
-(defn start [job-handlers {:keys [config] :as system}]
-  (let [worker-signal (atom :start)
-        state-provider identity
-        exception-handler (default-exception-handler config)]
+(defn start [job-handlers system]
+  (let [worker-signal (atom :start)]
     (-> system
         (assoc-in [:worker :signal] worker-signal)
         (assoc-in [:worker :ref] (future
                                    (worker/start!
                                      system
-                                     state-provider
-                                     exception-handler
                                      job-handlers
                                      worker-signal))))))
-
-
 
 (defn deref-worker [system]
   (if-let [worker-ref (get-in system [:worker :ref])]
@@ -99,11 +45,6 @@
 (defn stop [system]
   (worker/stop! (get-in system [:worker :signal]))
   (timbre/info "Signalled system stop; waiting for stop.")
-  (deref-worker system))
-
-(defn stop-when-empty [system]
-  (worker/stop-when-empty! (get-in system [:worker :signal]))
-  (timbre/info "Signalled system stop-when-empty; waiting for stop.")
   (deref-worker system))
 
 (defn parse-ns
@@ -121,8 +62,8 @@
 
 (defn print-usage []
   (let [{:keys [summary]} (cli/parse-opts [] cli-options)]
-  (println "Usage: overseer.system handlers [options]")
-  (println summary)))
+    (println "Usage: overseer.system handlers [options]")
+    (println summary)))
 
 (defn -main
   [& args]
@@ -139,9 +80,3 @@
       (do
         (print-usage)
         (System/exit 1)))))
-
-    ;(when (= ":stop-when-empty" (first args))
-    ;  (stop-when-empty system)
-    ;  (d/shutdown false)
-    ;  (shutdown-agents)
-    ;  (System/exit 0))

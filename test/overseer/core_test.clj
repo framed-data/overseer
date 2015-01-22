@@ -1,0 +1,84 @@
+(ns overseer.core-test
+ (:require [clojure.test :refer :all]
+           [datomic.api :as d]
+           (overseer
+             [core :as core]
+             [status :as status]
+             [test-utils :as test-utils])))
+
+(use-fixtures :each test-utils/setup-db-fixtures)
+
+(deftest test-jobs-ready
+  (let [conn (test-utils/connect)
+        db (d/db conn)
+        ->squuid #(str (d/squuid))
+        jobs-txn
+        [{:db/id (d/tempid :db.part/user -1000)
+          :job/id (->squuid)
+          :job/status :unstarted}
+         {:db/id (d/tempid :db.part/user -1001)
+          :job/id (->squuid)
+          :job/status :started}
+         {:db/id (d/tempid :db.part/user -1002)
+          :job/id (->squuid)
+          :job/status :unstarted
+          :job/dep [(d/tempid :db.part/user -1000)]}
+         {:db/id (d/tempid :db.part/user -1003)
+          :job/id (->squuid)
+          :job/status :finished}
+         {:db/id (d/tempid :db.part/user -1004)
+          :job/id (->squuid)
+          :job/status :unstarted
+          :job/dep [(d/tempid :db.part/user -1003)]}
+         {:db/id (d/tempid :db.part/user -1005)
+          :job/id (->squuid)
+          :job/status :unstarted
+          :job/dep [(d/tempid :db.part/user -1000)
+                    (d/tempid :db.part/user -1003)]}
+         {:db/id (d/tempid :db.part/user -1006)
+          :job/id (->squuid)
+          :job/status :aborted}]
+        {:keys [tempids db-after] :as txn} @(d/transact conn jobs-txn)
+        resolve-tempid (fn [tempid]
+                         (->> (d/tempid :db.part/user tempid)
+                              (d/resolve-tempid db-after tempids)) )
+        jobs-ready (status/jobs-ready db-after)
+        ready? (fn [ent-id]
+                 (contains? jobs-ready (:job/id (d/entity db-after ent-id))))]
+    (is (ready? (resolve-tempid -1000))
+        "It finds :unstarted jobs with no dependencies")
+    (is (ready? (resolve-tempid -1001))
+        "It finds :started jobs with no dependencies")
+    (is (not (ready? (resolve-tempid -1002)))
+        "excludes jobs with unfinished dependencies")
+    (is (not (ready? (resolve-tempid -1003)))
+        "It excludes jobs that are already :finished")
+    (is (ready? (resolve-tempid -1004))
+        "It finds jobs where all dependencies are satisfied.")
+    (is (not (ready? (resolve-tempid -1005)))
+        "It excludes jobs where only some dependencies are satisfied.")
+    (is (not (ready? (resolve-tempid -1006)))
+        "It excludes jobs that are :aborted")))
+
+(deftest test-transitive-dependents
+  (let [conn (test-utils/connect)
+        graph [{:db/id (d/tempid :db.part/user -1001)
+                :job/id "12345"}
+               {:db/id (d/tempid :db.part/user -1002)
+                :job/dep (d/tempid :db.part/user -1001)}
+               {:db/id (d/tempid :db.part/user -1003)
+                :job/dep (d/tempid :db.part/user -1001)}
+               {:db/id (d/tempid :db.part/user -1004)
+                :job/dep (d/tempid :db.part/user -1002)}
+               {:db/id (d/tempid :db.part/user -1005)
+                :job/id "67890"}]
+        {:keys [tempids db-after] :as txn} @(d/transact conn graph)
+        resolve-tempid (fn [tempid]
+                         (->> (d/tempid :db.part/user tempid)
+                              (d/resolve-tempid db-after tempids)) )
+        entity-ids (map resolve-tempid [-1002 -1003 -1004])
+        ->job-id #(:job/id (d/entity db-after %))]
+    (is (= (set (map ->job-id entity-ids))
+           (core/transitive-dependents db-after (->job-id (resolve-tempid -1001)))))
+    (is (= #{}
+           (core/transitive-dependents db-after (->job-id (resolve-tempid -1005)))))))
