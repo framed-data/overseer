@@ -6,14 +6,10 @@
              [status :as status]
              [test-utils :as test-utils])))
 
-(defn setup-db-fixtures [f]
-  (test-utils/refresh-database test-utils/datomic-uri)
-  (f))
-
-(use-fixtures :each setup-db-fixtures)
+(use-fixtures :each test-utils/setup-db-fixtures)
 
 (deftest test-jobs-ready
-  (let [conn (d/connect test-utils/datomic-uri)
+  (let [conn (test-utils/connect)
         db (d/db conn)
         ->squuid #(str (d/squuid))
         jobs-txn
@@ -65,7 +61,7 @@
         "It excludes jobs that are :aborted")))
 
 (deftest test-transitive-dependents
-  (let [conn (d/connect test-utils/datomic-uri)
+  (let [conn (test-utils/connect)
         graph [{:db/id (d/tempid :db.part/user -1001)
                 :job/id "12345"}
                {:db/id (d/tempid :db.part/user -1002)
