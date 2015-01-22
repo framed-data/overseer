@@ -26,16 +26,6 @@
        (map (partial core/->job-entity db))
        (filter (comp job-handlers :job/type))))
 
-(defn reserve-job
-  "Attempt to reserve a job and return it, or return nil on failure"
-  [exception-handler conn job]
-  (let [job-id (:job/id job)]
-    (try-thunk exception-handler
-      #(do (timbre/info "Reserving job" job-id)
-           (core/reserve conn job-id)
-           (timbre/info "Reserved job" job-id)
-           job))))
-
 (defn sentry-capture [dsn ex]
   (let [extra (or (ex-data ex) {})
         ex-map
@@ -61,18 +51,29 @@
   "Exception handler for job thunks; invokes the default handler,
    then returns a status keyword. Attempts to parse special signal
    status out of ex, else defaults to :failed"
-  [system ex]
+  [system job]
   (fn [ex]
-    (let [default-handler (->default-exception-handler system)]
+    (let [default-handler (->default-exception-handler system)
+          status (or (get (ex-data ex) :overseer/status)
+                     :failed)]
       (default-handler ex)
-      (or (get (ex-data ex) :overseer/status)
-          :failed))))
+      status)))
+
+(defn reserve-job
+  "Attempt to reserve a job and return it, or return nil on failure"
+  [exception-handler conn job]
+  (let [{:keys [job/id job/type]} job]
+    (try-thunk exception-handler
+      #(do (timbre/info (format "Reserving job %s (%s)" id type))
+           (core/reserve conn id)
+           (timbre/info "Reserved job" id)
+           job))))
 
 (defn select-and-reserve
   "Attempt to select a ready job to run and reserve it, returning
    nil on failure"
   [{:keys [conn] :as system} jobs conn]
-  (let [job (core/->job-entity (d/db conn) (rand-nth jobs))
+  (let [job (core/->job-entity (d/db conn) (rand-nth (vec jobs)))
         ex-handler (->default-exception-handler system)]
     (when (reserve-job ex-handler conn job)
       job)))
@@ -82,13 +83,15 @@
   [{:keys [conn] :as system} job-handlers job]
   (let [job-id (:job/id job)
         job-handler (get job-handlers (:job/type job))
-        exit-status (try-thunk (->job-exception-handler system)
-                               #(job-handler system job))
+        exit-status (try-thunk (->job-exception-handler system job)
+                               (fn []
+                                 (job-handler system job)
+                                 :finished))
         txns (core/update-job-status-txns (d/db conn) job-id exit-status)]
-    (timbre/info "Exited job" job-id "with status" exit-status)
-    (when (= exit-status :aborted)
+    (timbre/info "Job" job-id "exited with status" exit-status)
+    (if (= exit-status :aborted)
       (timbre/info "Found :aborted job; aborting all dependents of" job-id))
-    (d/transact conn txns)))
+    @(d/transact conn txns)))
 
 (defn ->job-executor
   "Construct a function that will reserve a job off the queue and execute it,
