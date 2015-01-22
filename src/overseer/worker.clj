@@ -91,7 +91,7 @@
     (timbre/info "Job" job-id "exited with status" exit-status)
     (if (= exit-status :aborted)
       (timbre/info "Found :aborted job; aborting all dependents of" job-id))
-    @(d/transact conn txns)))
+    txns))
 
 (defn ->job-executor
   "Construct a function that will reserve a job off the queue and execute it,
@@ -102,7 +102,8 @@
       (when-not (empty? jobs)
         (timbre/info (count jobs) "handleable job(s) found.")
         (if-let [job (select-and-reserve system jobs conn)]
-          (run-job system job-handlers job))))))
+          (let [txns (run-job system job-handlers job)]
+            @(d/transact conn txns)))))))
 
 (defn run
   "Run a worker, given:
