@@ -1,51 +1,35 @@
 # Overseer
 
-TODO
+Overseer is a Clojure framework for defining and running complex job pipelines. It allows one to define complex workflows as a graph of dependent jobs, and automatically handles scheduling, execution, and failure handling among a pool of workers.
 
 ## Installation
+
+Conformity is available on Clojars, and can be included in your leiningen `project.clj` by adding the following to `:dependencies`:
+
+```clj
+[overseer "0.1.0"]
+```
 
 Overseer stores its operarational data in Datomic and requires its schema to be installed into the database. This can be done at the REPL (you should only have to do this once):
 
 ```clj
+(require '[datomic.api :as d])
 (require 'overseer.schema)
-(def conn (connect-to-my-datomic)) ; This step is up to you
-(overseer.schema/install conn)
+(def uri "datomic:free://localhost:4334/overseer") ; Substitute your own as necessary
+(overseer.schema/install (d/connect uri))
 ```
 
 This should return `:ok` after a successful installation.
 
-
 ## Using Datomic Pro
-By default, Overseer is configured to use the free distribution of Datomic, which uses transactor-local storage and is limited to 2 simultaneous peers. It's strongly suggested that Overseer be used in conjunction with [Datomic Pro](http://www.datomic.com/pricing.html) which supports more robust storage services such as DynamoDB/SQL and High Availability.
+By default, Overseer is configured to use the free distribution of Datomic, which uses transactor-local storage and is limited to 2 simultaneous peers. It's strongly suggested that Overseer be used in conjunction with [Datomic Pro](http://www.datomic.com/pricing.html) which supports more robust storage services such as DynamoDB/SQL and high availability. If you're already a user of Datomic Pro, you can use your own license with Overseer by putting the following in the `:dependencies` section of your `project.clj`:
 
-TODO: integrating with Datomic pro
-
-
-## Job handlers and the job graph
-TODO
-
-
-## Running jobs
-TODO - how to construct a txn, how to specify additional args
-(core/->graph-txn graph tx)
-
-
-
-## Error handling in jobs
-You are welcome to do your own error/exception handling within your job handlers however you please. By default, Overseer will catch exceptions within handlers and log an error. Overseer also supports sending handler exceptions directly to [Sentry](https://getsentry.com/) by using the following options in your config file:
-
-```yaml
-sentry:
-  dsn: https://public_key:secret_key@app.getsentry.com/port
+```clj
+[overseer "0.1.0" :exclusions [com.datomic/datomic-free]]
 ```
 
-## Starting a worker
-TODO
-
-## Scaling out workers
-
-Since Overseer uses the database as the central point of truth, the number of workers in the system can be arbitrarily scaled out horizontally, limited only by the number of Datomic peers in your license :-). As such, Overseer does not actually utilize any 'master' or 'supervisor' process.
-
+## Using Overseer
+You can find detailed information on defining and running Overseer jobs in the [wiki](https://github.com/framed-data/overseer/wiki).
 
 ## License
 
