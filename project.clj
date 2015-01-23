@@ -11,5 +11,4 @@
                  [com.datomic/datomic-free "0.9.5130" :exclusions [joda-time]]
                  [raven-clj "1.1.0"]]
   :profiles {:uberjar {:aot :all}}
-  :main overseer.system
-  :jvm-opts ["-XX:MaxPermSize=256m" "-Xss1m" "-Xmx4g" "-XX:+UseConcMarkSweepGC"])
+  :main overseer.system)
