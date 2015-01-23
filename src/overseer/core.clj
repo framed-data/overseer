@@ -22,7 +22,10 @@
     (map identity job-types)
     (map #(job-assertion % tx) job-types)))
 
-(defn job-dep-edges [graph jobs-by-type]
+(defn job-dep-edges
+  "Construct a list of assertions to of the graph edges, i.e marking
+   job dependencies"
+  [graph jobs-by-type]
   (for [[job deps] graph
         dep deps]
     [:db/add

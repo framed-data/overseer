@@ -62,8 +62,8 @@
                    [:db/add [:job/id job-id] :job.status/updated-at (java.util.Date.)]]
                   (throw (Exception. "Job status not eligible for start."))))})})
 
- (defn install
-   "Install Overseer's schema and DB functions into Datomic"
-   [conn]
-   @(d/transact conn (conj schema-txn reserve-job))
-   :ok)
+(defn install
+  "Install Overseer's schema and DB functions into Datomic"
+  [conn]
+  @(d/transact conn (conj schema-txn reserve-job))
+  :ok)

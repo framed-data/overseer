@@ -39,7 +39,6 @@
 
 (defn jobs-ready
   "Find all jobs that are ready to run.
-
    Works by finding all jobs that are not yet done, and subtracting the
    jobs who dependencies are not yet ready."
   [db]
