@@ -1,4 +1,4 @@
-(defproject overseer "0.1.0"
+(defproject io.framed/overseer "0.1.0"
   :description "A framework for defining and running expressive job pipelines"
   :url "https://github.com/framed-data/overseer"
   :license {:name "MIT License"
