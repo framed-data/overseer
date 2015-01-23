@@ -57,8 +57,7 @@
 
 (def cli-options
   [["-c" "--config PATH" "Path to YAML configuration file"
-    :default nil]
-   ["-h" "--help" "Display this menu and exit"]])
+    :default nil]])
 
 (defn print-usage []
   (let [{:keys [summary]} (cli/parse-opts [] cli-options)]
@@ -69,10 +68,6 @@
   [& args]
   (let [{:keys [options summary errors] :as opts}
         (cli/parse-opts args cli-options)]
-    (when (:help options)
-      (print-usage)
-      (System/exit 0))
-
     (if-let [handlers-str (first (:arguments opts))]
       (do
         (require (parse-ns handlers-str))
