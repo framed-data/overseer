@@ -1,6 +1,7 @@
 (ns overseer.system
   (:gen-class)
-  (:require [clojure.tools.cli :as cli]
+  (:require [clojure.java.io :as io]
+            [clojure.tools.cli :as cli]
             [clojure.string :as string]
             [clj-yaml.core :as yaml]
             [datomic.api :as d]
@@ -9,20 +10,9 @@
               [schema :as schema]
               [worker :as worker])))
 
-(def default-static-config
-  {:datomic {:uri "datomic:free://localhost:4334/overseer"}
-   :sleep-time 10000})
-
-(defn ->static-config [config-path]
-  (if config-path
-    (merge default-static-config
-           (yaml/parse-string (slurp config-path)))
-    (do
-      (timbre/warn "Warning: no config specified, using default options")
-      default-static-config)))
-
 (defn ->system [options]
-  (let [config (->static-config (:config options))
+  {:pre [(:config options)]}
+  (let [config (yaml/parse-string (slurp (:config options)))
         datomic-uri (get-in config [:datomic :uri])]
     {:config config
      :conn (d/connect datomic-uri)}))
@@ -68,6 +58,12 @@
   [& args]
   (let [{:keys [options summary errors] :as opts}
         (cli/parse-opts args cli-options)]
+
+    (if-not (.exists (io/file (:config options)))
+      (do
+        (print-usage)
+        (System/exit 1)))
+
     (if-let [handlers-str (first (:arguments opts))]
       (do
         (require (parse-ns handlers-str))
