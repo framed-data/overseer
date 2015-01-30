@@ -38,3 +38,7 @@
   ([] (abort ""))
   ([msg]
     (throw (ex-info msg {:overseer/status :aborted}))))
+
+(def default-config
+  {:datomic {:uri "datomic:free://localhost:4334/overseer"}
+   :sleep-time 10000})
