@@ -29,7 +29,7 @@
             (raven.interface/stacktrace ex))]
     (try (raven/capture dsn ex-map)
       (catch Exception ex'
-        (timbre/error "Senry exception handler failed")
+        (timbre/error "Sentry exception handler failed")
         (timbre/error ex')))))
 
 (defn ->default-exception-handler
