@@ -21,11 +21,12 @@
        (map (partial core/->job-entity db))
        (filter (comp job-handlers :job/type))))
 
-(defn sentry-capture [dsn ex]
-  (let [extra (or (ex-data ex) {})
+(defn sentry-capture [dsn ex extra-info]
+  (let [extra-info' (or extra-info {})
+        ex-data' (or (ex-data ex) {})
         ex-map
         (-> {:message (.getMessage ex)
-             :extra extra}
+             :extra (merge extra-info' ex-data')}
             (raven.interface/stacktrace ex))]
     (try (raven/capture dsn ex-map)
       (catch Exception ex'
@@ -35,20 +36,20 @@
 (defn ->default-exception-handler
   "Construct an handler function that by default logs exceptions
    and optionally sends to Sentry if configured"
-  [{:keys [config] :as system}]
+  [{:keys [config] :as system} job]
   (fn [ex]
     (timbre/error ex)
     (if-let [dsn (get-in config [:sentry :dsn])]
-      (sentry-capture dsn ex))
+      (sentry-capture dsn ex (select-keys job [:job/type :job/id])))
     nil))
 
 (defn ->job-exception-handler
   "Exception handler for job thunks; invokes the default handler,
    then returns a status keyword. Attempts to parse special signal
    status out of ex, else defaults to :failed"
-  [system]
+  [system job]
   (fn [ex]
-    (let [default-handler (->default-exception-handler system)
+    (let [default-handler (->default-exception-handler system job)
           status (or (get (ex-data ex) :overseer/status)
                      :failed)]
       (default-handler ex)
@@ -69,7 +70,7 @@
    nil on failure"
   [{:keys [conn] :as system} jobs conn]
   (let [job (core/->job-entity (d/db conn) (rand-nth (vec jobs)))
-        ex-handler (->default-exception-handler system)]
+        ex-handler (->default-exception-handler system job)]
     (when (reserve-job ex-handler conn job)
       job)))
 
@@ -78,7 +79,7 @@
   [{:keys [conn] :as system} job-handlers job]
   (let [job-id (:job/id job)
         job-handler (get job-handlers (:job/type job))
-        exit-status (try-thunk (->job-exception-handler system)
+        exit-status (try-thunk (->job-exception-handler system job)
                                (fn []
                                  (job-handler system job)
                                  :finished))
