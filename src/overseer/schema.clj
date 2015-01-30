@@ -32,13 +32,6 @@
      :db/doc
      "Dependency of this job ('parent'). Refers to other jobs
      that must be completed before this job can run."
-     :db.install/_attribute :db.part/db}
-
-    {:db/id (d/tempid :db.part/db)
-     :db/ident :job.status/updated-at
-     :db/valueType :db.type/instant
-     :db/cardinality :db.cardinality/one
-     :db/doc "Time at which a job's status was last updated."
      :db.install/_attribute :db.part/db}])
 
 (def reserve-job
@@ -58,8 +51,7 @@
                              job-id)
                     status (ffirst result)]
                 (if (= :unstarted status)
-                  [[:db/add [:job/id job-id] :job/status :started]
-                   [:db/add [:job/id job-id] :job.status/updated-at (java.util.Date.)]]
+                  [[:db/add [:job/id job-id] :job/status :started]]
                   (throw (Exception. "Job status not eligible for start."))))})})
 
 (defn install
