@@ -37,7 +37,7 @@
  (d/pull db '[:*] [:job/id job-id]))
 
 (defn reserve
-  "Return a transaction clause that reserves the given job, or throws an exception.
+  "Transact the DB to reserve the given job, or throw an exception.
    Requires the overseer.schema/reserve-job database function to be in-schema."
   [conn job-id]
   {:pre [job-id]}
@@ -52,7 +52,7 @@
             db
             ent)
        (map first)
-       (into #{})))
+       (set)))
 
 (defn transitive-dependents [db job-id]
   "Returns a set of job IDs that transitively depend upon given job ID
