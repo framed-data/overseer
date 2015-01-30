@@ -20,7 +20,8 @@
   (timbre/with-log-level :report
     (let [ex (ex-info "uh oh" {:overseer/status :aborted})
           system {:config {}}
-          ex-handler (w/->job-exception-handler system)]
+          job {:job/id -1 :job/type :foo}
+          ex-handler (w/->job-exception-handler system job)]
       (is (= :aborted (ex-handler ex))))))
 
 (deftest test-reserve-job
