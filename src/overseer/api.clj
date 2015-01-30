@@ -29,12 +29,12 @@
        (vals jobs-by-type)
        dep-edges))))
 
-(defn fail!
-  ([] (fail! ""))
+(defn fail
+  ([] (fail ""))
   ([msg]
     (throw (ex-info msg {:overseer/status :failed}))))
 
-(defn abort!
-  ([] (abort! ""))
+(defn abort
+  ([] (abort ""))
   ([msg]
     (throw (ex-info msg {:overseer/status :aborted}))))
