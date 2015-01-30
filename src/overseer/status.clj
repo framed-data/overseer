@@ -3,16 +3,21 @@
   (:require [datomic.api :as d]
             [clojure.set :as set]))
 
+(defn jobs-with-status [db status]
+  (->> (d/q '[:find ?jid
+              :in $ ?status
+              :where
+              [?e :job/status ?status]
+              [?e :job/id ?jid]]
+            db
+            status)
+       (map first)
+       (set)))
+
 (defn jobs-failed
   "Find all jobs that have failed."
   [db]
-  (->> (d/q '[:find ?jid
-              :where
-              [?e :job/status :failed]
-              [?e :job/id ?jid]]
-            db)
-       (map first)
-       (into #{})))
+  (jobs-with-status db :failed))
 
 (defn jobs-unfinished
   "Find all jobs that are not yet complete."
@@ -29,13 +34,7 @@
 (defn jobs-started
   "Find all jobs that are currently started."
   [db]
-  (->> (d/q '[:find ?jid
-              :where
-              [?e :job/status :started]
-              [?e :job/id ?jid]]
-            db)
-       (map first)
-       (into #{})))
+  (jobs-with-status db :started))
 
 (defn jobs-ready
   "Find all jobs that are ready to run.
