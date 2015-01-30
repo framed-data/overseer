@@ -8,11 +8,6 @@
               [core :as core]
               [status :as status])))
 
-(def signal (atom nil))
-
-(defn signal! [sig status]
-  (reset! sig status))
-
 (defn try-thunk
   "Returns the value of calling f, or of calling exception-handler
    with any exception thrown"
@@ -128,4 +123,4 @@
     (run job-executor signal sleep-time)))
 
 (defn stop! [signal]
-  (signal! signal :stop))
+  (reset! signal :stop))
