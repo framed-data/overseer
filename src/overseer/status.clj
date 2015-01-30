@@ -14,11 +14,6 @@
        (map first)
        (set)))
 
-(defn jobs-failed
-  "Find all jobs that have failed."
-  [db]
-  (jobs-with-status db :failed))
-
 (defn jobs-unfinished
   "Find all jobs that are not yet complete."
   [db]
@@ -30,11 +25,6 @@
             db)
        (map first)
        (into #{})))
-
-(defn jobs-started
-  "Find all jobs that are currently started."
-  [db]
-  (jobs-with-status db :started))
 
 (defn jobs-ready
   "Find all jobs that are ready to run.
