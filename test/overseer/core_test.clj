@@ -82,3 +82,28 @@
            (core/transitive-dependents db-after (->job-id (resolve-tempid -1001)))))
     (is (= #{}
            (core/transitive-dependents db-after (->job-id (resolve-tempid -1005)))))))
+
+(deftest test-job-dep-edges
+  (let [graph
+        {:start []
+         :result1 [:start]
+         :result2 [:start]
+         :publish [:result1 :result2]}
+        jobs-by-type (core/job-assertions-by-type (keys graph) {})
+        ->job-tempid (fn [job-type] (:db/id (get jobs-by-type job-type)))
+        edge-assertions (core/job-dep-edges graph jobs-by-type)]
+      (is (= (->job-tempid :start)
+             (:job/dep (nth edge-assertions 0)))
+          ":result1 depends on :start")
+
+      (is (= (->job-tempid :start)
+             (:job/dep (nth edge-assertions 1)))
+          ":result2 depends on :start")
+
+      (is (= (->job-tempid :result1)
+             (:job/dep (nth edge-assertions 2)))
+          ":finish depends on :result1")
+
+      (is (= (->job-tempid :result2)
+             (:job/dep (nth edge-assertions 3)))
+          ":finish depends on :result2")))
