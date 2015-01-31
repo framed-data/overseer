@@ -102,8 +102,8 @@
 
       (is (= (->job-tempid :result1)
              (:job/dep (nth edge-assertions 2)))
-          ":finish depends on :result1")
+          ":publish depends on :result1")
 
       (is (= (->job-tempid :result2)
              (:job/dep (nth edge-assertions 3)))
-          ":finish depends on :result2")))
+          ":publish depends on :result2")))
