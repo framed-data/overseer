@@ -94,7 +94,7 @@
    returning nil if the queue is empty"
   [{:keys [config conn] :as system} job-handlers]
   (fn []
-    (let [jobs (status/jobs-ready (d/db conn))]
+    (let [jobs (ready-job-entities (d/db conn) job-handlers)]
       (when-not (empty? jobs)
         (timbre/info (count jobs) "handleable job(s) found.")
         (if-let [job (select-and-reserve system jobs conn)]
