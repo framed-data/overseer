@@ -19,9 +19,9 @@
 (deftest test-job-exception-handler
   (timbre/with-log-level :report
     (let [ex (ex-info "uh oh" {:overseer/status :aborted})
-          system {:config {}}
+          config {}
           job {:job/id -1 :job/type :foo}
-          ex-handler (w/->job-exception-handler system job)]
+          ex-handler (w/->job-exception-handler config job)]
       (is (= :aborted (ex-handler ex))))))
 
 (deftest test-reserve-job
@@ -38,8 +38,8 @@
 (deftest test-run-job-success
   (timbre/with-log-level :report
     (let [conn (test-utils/connect)
-          system {:conn conn}
-          job-handlers {:foo (fn [sys job] :ok)}
+          system {:conn conn :config {}}
+          job-handlers {:foo (fn [job] :ok)}
           job (test-utils/->transact-job conn {:job/type :foo})
           job-ent-id (:db/id job)
           status-txns (w/run-job system job-handlers job)

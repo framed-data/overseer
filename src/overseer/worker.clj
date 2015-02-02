@@ -36,7 +36,7 @@
 (defn ->default-exception-handler
   "Construct an handler function that by default logs exceptions
    and optionally sends to Sentry if configured"
-  [{:keys [config] :as system} job]
+  [config job]
   (fn [ex]
     (timbre/error ex)
     (if-let [dsn (get-in config [:sentry :dsn])]
@@ -47,9 +47,9 @@
   "Exception handler for job thunks; invokes the default handler,
    then returns a status keyword. Attempts to parse special signal
    status out of ex, else defaults to :failed"
-  [system job]
+  [config job]
   (fn [ex]
-    (let [default-handler (->default-exception-handler system job)
+    (let [default-handler (->default-exception-handler config job)
           status (or (get (ex-data ex) :overseer/status)
                      :failed)]
       (default-handler ex)
@@ -68,20 +68,20 @@
 (defn select-and-reserve
   "Attempt to select a ready job to run and reserve it, returning
    nil on failure"
-  [{:keys [conn] :as system} jobs conn]
+  [conn config jobs]
   (let [job (core/->job-entity (d/db conn) (rand-nth (vec jobs)))
-        ex-handler (->default-exception-handler system job)]
+        ex-handler (->default-exception-handler config job)]
     (when (reserve-job ex-handler conn job)
       job)))
 
 (defn run-job
   "Run a single job and return the appropriate status update txns"
-  [{:keys [conn] :as system} job-handlers job]
+  [{:keys [config conn] :as system} job-handlers job]
   (let [job-id (:job/id job)
         job-handler (get job-handlers (:job/type job))
-        exit-status (try-thunk (->job-exception-handler system job)
+        exit-status (try-thunk (->job-exception-handler config job)
                                (fn []
-                                 (job-handler system job)
+                                 (job-handler job)
                                  :finished))
         txns (core/update-job-status-txns (d/db conn) job-id exit-status)]
     (timbre/info "Job" job-id "exited with status" exit-status)
@@ -97,7 +97,7 @@
     (let [jobs (ready-job-entities (d/db conn) job-handlers)]
       (when-not (empty? jobs)
         (timbre/info (count jobs) "handleable job(s) found.")
-        (if-let [job (select-and-reserve system jobs conn)]
+        (if-let [job (select-and-reserve conn config jobs)]
           (let [txns (run-job system job-handlers job)]
             @(d/transact conn txns)))))))
 
