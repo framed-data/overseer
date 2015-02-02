@@ -77,7 +77,6 @@
 (defn run-job
   "Run a single job and return the appropriate status update txns"
   [{:keys [config conn] :as system} job-handlers job]
-          job {:job/id -1 :job/type :foo}
   (let [job-id (:job/id job)
         job-handler (get job-handlers (:job/type job))
         exit-status (try-thunk (->job-exception-handler config job)
