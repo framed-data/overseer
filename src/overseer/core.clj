@@ -28,10 +28,8 @@
   [graph jobs-by-type]
   (for [[job deps] graph
         dep deps]
-    [:db/add
-     (get-in jobs-by-type [job :db/id])
-     :job/dep
-     (get-in jobs-by-type [dep :db/id])]))
+    {:db/id (get-in jobs-by-type [job :db/id])
+     :job/dep (get-in jobs-by-type [dep :db/id])}))
 
 (defn ->job-entity [db job-id]
  (d/pull db '[:*] [:job/id job-id]))
