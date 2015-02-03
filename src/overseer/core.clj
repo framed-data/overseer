@@ -32,7 +32,8 @@
      :job/dep (get-in jobs-by-type [dep :db/id])}))
 
 (defn ->job-entity [db job-id]
- (d/pull db '[:*] [:job/id job-id]))
+  {:pre [job-id]}
+  (d/pull db '[:*] [:job/id job-id]))
 
 (defn reserve
   "Transact the DB to reserve the given job, or throw an exception.
