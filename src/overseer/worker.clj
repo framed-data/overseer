@@ -71,7 +71,7 @@
    nil on failure"
   [conn config jobs]
   {:pre [(not (empty? jobs))]}
-  (let [job (rand-nth (vec jobs))
+  (let [job (rand-nth jobs)
         ex-handler (->default-exception-handler config job)]
     (when (reserve-job ex-handler conn job)
       job)))
