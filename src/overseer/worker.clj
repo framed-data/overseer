@@ -58,6 +58,7 @@
 (defn reserve-job
   "Attempt to reserve a job and return it, or return nil on failure"
   [exception-handler conn job]
+  {:pre [job]}
   (let [{:keys [job/id job/type]} job]
     (try-thunk exception-handler
       #(do (timbre/info (format "Reserving job %s (%s)" id type))
@@ -69,7 +70,8 @@
   "Attempt to select a ready job to run and reserve it, returning
    nil on failure"
   [conn config jobs]
-  (let [job (core/->job-entity (d/db conn) (rand-nth (vec jobs)))
+  {:pre [(not (empty? jobs))]}
+  (let [job (rand-nth (vec jobs))
         ex-handler (->default-exception-handler config job)]
     (when (reserve-job ex-handler conn job)
       job)))

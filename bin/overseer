@@ -3,6 +3,7 @@
 # Usage: bin/overseer <APP_JAR> <HANDLERS> <OPTIONS>
 # Ex: bin/overseer /path/to/myapp.jar myapp.core/job-handlers -c /path/to/config.yml
 
+OVERSEER_VERSION="0.2.1"
 cd `dirname $0`
 
 if [ "$1" = "-h" ] || [ "$1" = "--help" ];
@@ -18,7 +19,7 @@ then
 fi
 
 APP_JAR=`readlink -e $1`
-OVERSEER_JAR=`readlink -e "../target/overseer-0.1.0-SNAPSHOT-standalone.jar"`
+OVERSEER_JAR=`readlink -e "../target/overseer-$OVERSEER_VERSION-standalone.jar"`
 
 CP="$APP_JAR:$OVERSEER_JAR"
 exec java -classpath $CP overseer.system ${*:2}
