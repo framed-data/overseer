@@ -8,6 +8,8 @@
               [core :as core]
               [status :as status])))
 
+(def default-sleep-time 10000) ; ms
+
 (defn try-thunk
   "Returns the value of calling f, or of calling exception-handler
    with any exception thrown"
@@ -110,6 +112,7 @@
    2. A signalling atom to control the worker
    3. The amount of time to sleep in between checking for jobs"
   [job-executor signal sleep-time]
+  {:pre [sleep-time]}
   (loop []
     (if (= @signal :stop)
       (timbre/info ":stop received; stopping")
@@ -122,7 +125,7 @@
 (defn start! [{:keys [config] :as system} job-handlers signal]
   (timbre/info "Worker starting!")
   (let [job-executor (->job-executor system job-handlers)
-        sleep-time (:sleep-time config)]
+        sleep-time (or (:sleep-time config) default-sleep-time)]
     (run job-executor signal sleep-time)))
 
 (defn stop! [signal]
