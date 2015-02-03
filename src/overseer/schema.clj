@@ -50,7 +50,7 @@
                              db
                              job-id)
                     status (ffirst result)]
-                (if (= :unstarted status)
+                (if-not (#{:finished :aborted :failed} status)
                   [[:db/add [:job/id job-id] :job/status :started]]
                   (throw (Exception. "Job status not eligible for start."))))})})
 
