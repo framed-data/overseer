@@ -1,4 +1,6 @@
-(defproject io.framed/overseer "0.2.2"
+(def version (clojure.string/trim-newline (slurp "VERSION")))
+
+(defproject io.framed/overseer version
   :description "A framework for defining and running expressive job pipelines"
   :url "https://github.com/framed-data/overseer"
   :license {:name "MIT License"

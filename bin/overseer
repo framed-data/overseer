@@ -3,8 +3,8 @@
 # Usage: bin/overseer <APP_JAR> <HANDLERS> <OPTIONS>
 # Ex: bin/overseer /path/to/myapp.jar myapp.core/job-handlers -c /path/to/config.yml
 
-OVERSEER_VERSION="0.2.2"
 cd `dirname $0`
+OVERSEER_VERSION=`echo -n $(head -n1 ../VERSION) | tr -d "\n"`
 
 if [ "$1" = "-h" ] || [ "$1" = "--help" ];
 then
