@@ -3,7 +3,9 @@
   (:require [datomic.api :as d]
             [clojure.set :as set]))
 
-(defn jobs-with-status [db status]
+(defn jobs-with-status
+  "Find all job IDs with a given status (e.g. :unstarted)"
+  [db status]
   (->> (d/q '[:find ?jid
               :in $ ?status
               :where
@@ -15,7 +17,7 @@
        (set)))
 
 (defn jobs-unfinished
-  "Find all jobs that are not yet complete."
+  "Find all job IDs that are not yet complete."
   [db]
   (->> (d/q '[:find ?jid
               :where
@@ -27,7 +29,7 @@
        (into #{})))
 
 (defn jobs-ready
-  "Find all jobs that are ready to run.
+  "Find all job IDs that are ready to run.
    Works by finding all jobs that are not yet done, and subtracting the
    jobs who dependencies are not yet ready."
   [db]
