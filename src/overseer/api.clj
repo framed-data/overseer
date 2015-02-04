@@ -35,11 +35,15 @@
        dep-edges))))
 
 (defn fail
+  "Control-flow helper to mark a job as failed from within a handler
+   (halts handler execution)"
   ([] (fail ""))
   ([msg]
     (throw (ex-info msg {:overseer/status :failed}))))
 
 (defn abort
+  "Control-flow helper to mark a job as aborted from within a handler
+   and abort all of its dependents (halts handler execution)"
   ([] (abort ""))
   ([msg]
     (throw (ex-info msg {:overseer/status :aborted}))))
