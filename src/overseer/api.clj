@@ -4,7 +4,12 @@
             [clojure.set :as set]
             (overseer
               [core :as core]
-              [system :as system])))
+              [system :as system]
+              [worker :as worker])))
+
+(def default-config
+  {:datomic {:uri "datomic:free://localhost:4334/overseer"}
+   :sleep-time worker/default-sleep-time})
 
 (def start
   "Alias in order to start the system as a library"
@@ -38,7 +43,3 @@
   ([] (abort ""))
   ([msg]
     (throw (ex-info msg {:overseer/status :aborted}))))
-
-(def default-config
-  {:datomic {:uri "datomic:free://localhost:4334/overseer"}
-   :sleep-time 10000})
