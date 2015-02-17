@@ -78,14 +78,29 @@
     (when (reserve-job ex-handler conn job)
       job)))
 
+(defn invoke-handler [handler job]
+  (cond
+    (map? handler)
+      (let [{:keys [pre-process process post-process]
+             :or {pre-process (fn [job] nil)
+                  post-process (fn [job res] nil)}} handler]
+        (assert process "Expected handler map to define :process function")
+        (pre-process job)
+        (->> (process job)
+             (post-process job)))
+    (ifn? handler)
+      (handler job)
+    :else
+      (throw (Exception. "Handlers must either be a function or a map"))))
+
 (defn run-job
   "Run a single job and return the appropriate status update txns"
   [{:keys [config conn] :as system} job-handlers job]
   (let [job-id (:job/id job)
-        job-handler (get job-handlers (:job/type job))
+        handler (get job-handlers (:job/type job))
         exit-status (try-thunk (->job-exception-handler config job)
                                (fn []
-                                 (job-handler job)
+                                 (invoke-handler handler job)
                                  :finished))
         txns (core/update-job-status-txns (d/db conn) job-id exit-status)]
     (timbre/info "Job" job-id "exited with status" exit-status)
