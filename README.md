@@ -4,7 +4,7 @@ Overseer is a Clojure framework for defining and running complex job pipelines. 
 
 ## Installation
 
-Conformity is available on Clojars, and can be included in your leiningen `project.clj` by adding the following to `:dependencies`:
+Overseer is available on Clojars, and can be included in your leiningen `project.clj` by adding the following to `:dependencies`:
 
 ```clj
 [io.framed/overseer "0.2.1"]
