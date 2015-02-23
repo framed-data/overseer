@@ -27,6 +27,7 @@
   ([graph]
    (->graph-txn graph {}))
   ([graph tx]
+   {:pre [(core/assert-valid-graph graph)]}
    (let [job-types (keys graph)
          jobs-by-type (core/job-assertions-by-type job-types tx)
          dep-edges (core/job-dep-edges graph jobs-by-type)]

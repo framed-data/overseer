@@ -8,6 +8,13 @@
 
 (use-fixtures :each test-utils/setup-db-fixtures)
 
+(deftest test-assert-valid-graph
+  (let [g1 {:foo []
+            :bar [:foo]}
+        g2 {:baz [:quux]}] ; Invalid, quux not specified
+    (is (= true (core/assert-valid-graph g1)))
+    (is (thrown? AssertionError (core/assert-valid-graph g2)))))
+
 (deftest test-jobs-ready
   (let [conn (test-utils/connect)
         db (d/db conn)

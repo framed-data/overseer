@@ -3,6 +3,15 @@
   (:require [datomic.api :as d]
             [clojure.set :as set]))
 
+(defn assert-valid-graph
+  "Assert that all dependencies specified are present in a graph"
+  [graph]
+  (dorun
+    (for [[k deps] graph
+          d deps]
+      (assert (get graph d) (str "Couldn't resolve dependency: " d))))
+  true)
+
 (defn job-assertion
   "Construct a single job assertion, given a type and optional
    user-provided txn data"
