@@ -1,7 +1,8 @@
 (ns overseer.api
   "User-facing core API"
-  (:require [datomic.api :as d]
-            [clojure.set :as set]
+  (:require [clojure.set :as set]
+            [clojure.string :as string]
+            [datomic.api :as d]
             (overseer
               [core :as core]
               [system :as system]
@@ -27,13 +28,15 @@
   ([graph]
    (->graph-txn graph {}))
   ([graph tx]
-   {:pre [(core/assert-valid-graph graph)]}
-   (let [job-types (keys graph)
-         jobs-by-type (core/job-assertions-by-type job-types tx)
-         dep-edges (core/job-dep-edges graph jobs-by-type)]
-     (concat
-       (vals jobs-by-type)
-       dep-edges))))
+   (let [missing-deps (core/missing-dependencies graph)]
+      (assert (empty? missing-deps)
+              (str "Invalid graph; missing dependencies " (string/join ", " missing-deps)))
+     (let [job-types (keys graph)
+           jobs-by-type (core/job-assertions-by-type job-types tx)
+           dep-edges (core/job-dep-edges graph jobs-by-type)]
+       (concat
+         (vals jobs-by-type)
+         dep-edges)))))
 
 (defn fail
   "Control-flow helper to mark a job as failed from within a handler
