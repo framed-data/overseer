@@ -51,3 +51,47 @@
   ([] (abort ""))
   ([msg]
     (throw (ex-info msg {:overseer/status :aborted}))))
+
+(defn harness
+  "A mechanism to 'wrap' job handlers, giving one the ability
+   to provide additional context prior to execution.
+
+   Accepts a standard job handler (map or function) and a
+   `wrapper` function which will be called with the *function* specified
+   in your handler and is expected to return a new *function* with the
+   same signature. If your handler is a map, it will be transparently
+   constructed/deconstructed; harnesses work solely in terms of functions.
+
+   For example, a harness that simply implements the default behavior is:
+
+     (defn my-harness [f]
+       (fn [job]
+         (f job)))
+
+   A more substantive harnesses can be used to provide jobs with additional
+   context, for example a database connection:
+
+     (defn my-harness [f]
+       (fn [job]
+         (-> job
+             (assoc :conn (d/connect my-datomic-uri))
+             (f))))
+
+   In the job-handlers map, one specifies
+
+     {:my-job (overseer.api/harness my-job/run my-harness)}
+
+   then within your handler:
+
+     (defn run [{:keys [conn] :as job}] ...)
+
+   If your handler is a map, you can optionally specify a key to harness a
+   specific stage; the default is :process. To harness a post-processor:
+
+     {:my-job (overseer.api/harness my-job/run :post-process my-harness)}"
+  ([handler wrapper]
+   (harness handler :process wrapper))
+  ([handler k wrapper]
+   (if (map? handler)
+    (update-in handler [k] wrapper)
+    (wrapper handler))))
