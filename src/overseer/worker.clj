@@ -78,15 +78,32 @@
     (when (reserve-job ex-handler conn job)
       job)))
 
-(defn invoke-handler [handler job]
+(defn invoke-handler
+  "Invoke a job handler, which can either be an ordinary function
+   expecting a job argument, or a map of the following structure:
+
+     ; Optional, runs prior to main processing function and can be
+     ; used to transform input, for example.
+     :pre-process (fn [job] ...)
+
+     ; Required, the main processing function.
+     :process (fn [job] ...)
+
+     ; Optional, for post-processing after main execution. Receives
+     ; the job and return value of the :process function as arguments.
+     :post-process (fn [job res] ...)
+
+     The default pre-processor passes the job through unmodified,
+     and the default post-processor returns its result unmodified."
+  [handler job]
   (cond
     (map? handler)
       (let [{:keys [pre-process process post-process]
-             :or {pre-process (fn [job] nil)
-                  post-process (fn [job res] nil)}} handler]
+             :or {pre-process (fn [job] job)
+                  post-process (fn [job res] res)}} handler]
         (assert process "Expected handler map to define :process function")
-        (pre-process job)
-        (->> (process job)
+        (->> (pre-process job)
+             (process)
              (post-process job)))
     (ifn? handler)
       (handler job)
