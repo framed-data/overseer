@@ -81,7 +81,7 @@
 
      {:my-job (overseer.api/harness my-job/run my-harness)}
 
-   then within your handler:
+   Following the example, within your handler:
 
      (defn run [{:keys [conn] :as job}] ...)
 

@@ -83,7 +83,7 @@
     (map? handler)
       (let [{:keys [pre-process process post-process]
              :or {pre-process (fn [job] nil)
-                  post-process (fn [job res] nil)}} handler]
+                  post-process (fn [job res] res)}} handler]
         (assert process "Expected handler map to define :process function")
         (pre-process job)
         (->> (process job)
