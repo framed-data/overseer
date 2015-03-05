@@ -38,6 +38,11 @@
          (vals jobs-by-type)
          dep-edges)))))
 
+(defn validate-graph-handlers [handlers graph]
+  (let [missing-handlers (core/missing-handlers handlers graph)]
+    (assert (empty? missing-handlers)
+            (str "Invalid graph; missing handlers " (string/join ", " missing-handlers)))))
+
 (defn fail
   "Control-flow helper to mark a job as failed from within a handler
    (halts handler execution)"
