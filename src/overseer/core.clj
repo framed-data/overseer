@@ -12,6 +12,10 @@
          (when-not (get graph d) d))
        (filter identity)))
 
+(defn missing-handlers [handlers graph]
+  (->> (filter (fn [[k _]] (not (contains? handlers k))) graph)
+       (map first)))
+
 (defn job-assertion
   "Construct a single job assertion, given a type and optional
    user-provided txn data"
