@@ -15,6 +15,17 @@
     (is (= [] (core/missing-dependencies g1)))
     (is (= [:quux] (core/missing-dependencies g2)))))
 
+(deftest test-missing-handlers
+  (let [handlers {:foo (fn [_] nil)
+                  :bar (fn [_] nil)}
+        g1 {:foo []
+            :bar [:foo]}
+
+        g2 {:foo []
+            :quux [:foo]}]
+    (is (= [] (core/missing-handlers handlers g1)))
+    (is (= [:quux] (core/missing-handlers handlers g2)))))
+
 (deftest test-jobs-ready
   (let [conn (test-utils/connect)
         db (d/db conn)

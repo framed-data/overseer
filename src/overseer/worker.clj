@@ -113,8 +113,10 @@
 (defn run-job
   "Run a single job and return the appropriate status update txns"
   [{:keys [config conn] :as system} job-handlers job]
-  (let [job-id (:job/id job)
-        handler (get job-handlers (:job/type job))
+  (let [{job-id :job/id
+         job-type :job/type} job
+        handler (get job-handlers job-type)
+        _ (assert handler (str "Handler not specified: " job-type))
         exit-status (try-thunk (->job-exception-handler config job)
                                (fn []
                                  (invoke-handler handler job)
