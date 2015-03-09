@@ -93,10 +93,19 @@
    If your handler is a map, you can optionally specify a key to harness a
    specific stage; the default is :process. To harness a post-processor:
 
-     {:my-job (overseer.api/harness my-job/run :post-process my-harness)}"
+     {:my-job (overseer.api/harness my-job/run :post-process my-harness)}
+
+   If you attempt to harness a missing key, the wrapper will be invoked with
+   clojure.core/identity, meaning you can write your handlers in a single way, e.g.
+
+     (defn my-harness [f]
+       (fn [job]
+         (f (assoc job :foo :bar))))
+
+   and uniformly harness a set of handlers."
   ([handler wrapper]
    (harness handler :process wrapper))
   ([handler k wrapper]
    (if (map? handler)
-    (update-in handler [k] wrapper)
+    (update-in handler [k] (fn [f] (wrapper (or f identity))))
     (wrapper handler))))
