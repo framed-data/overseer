@@ -50,4 +50,12 @@
             harnessed (api/harness handler :post-process post-wrapper)]
         (reset! state 0)
         (is (= :quux (w/invoke-handler harnessed job)))
-        (is (= 2 @state))))))
+        (is (= 2 @state))))
+
+    (testing "harnessing missing keys"
+      (let [handler {:process (fn [job] (:foo job))}
+            wrapper' (fn [f]
+                       (fn [job]
+                         (f (assoc job :foo :bar))))
+            harnessed (api/harness handler :pre-process wrapper')]
+        (is (= :bar (w/invoke-handler harnessed job)))))))
