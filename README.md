@@ -7,7 +7,7 @@ Overseer is a Clojure framework for defining and running complex job pipelines. 
 Overseer is available on Clojars, and can be included in your leiningen `project.clj` by adding the following to `:dependencies`:
 
 ```clj
-[io.framed/overseer "0.2.1"]
+[io.framed/overseer "0.4.1"]
 ```
 
 Overseer stores its operarational data in Datomic and requires its schema to be installed into the database. This can be done at the REPL (you should only have to do this once):
