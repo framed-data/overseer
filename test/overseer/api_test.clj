@@ -20,7 +20,18 @@
             harnessed (api/harness handler wrapper)]
         (reset! state 0)
         (is (= :quux (w/invoke-handler harnessed job)))
-        (is (= 2 @state))))
+        (is (= 2 @state))
+        (is (map? harnessed))))
+
+    (testing "mapping function handler"
+      (let [handler (fn [job]
+                      (swap! state inc)
+                      :quux)
+            harnessed (api/harness handler :pre-process wrapper)]
+        (reset! state 0)
+        (is (= :quux (w/invoke-handler harnessed job)))
+        (is (= 2 @state))
+        (is (= #{:pre-process :process} (set (keys harnessed))))))
 
     (testing "map handler - :process"
       (let [handler {:process (fn [job] (swap! state inc))}
