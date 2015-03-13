@@ -108,4 +108,4 @@
   ([handler k wrapper]
    (if (map? handler)
     (update-in handler [k] (fn [f] (wrapper (or f identity))))
-    (wrapper handler))))
+    (harness {:process handler} k wrapper))))
