@@ -31,7 +31,23 @@
      :db/cardinality :db.cardinality/many
      :db/doc
      "Dependency of this job ('parent'). Refers to other jobs
-     that must be completed before this job can run."
+      that must be completed before this job can run."
+     :db.install/_attribute :db.part/db}
+
+    {:db/id (d/tempid :db.part/db)
+     :db/ident :job/created-at
+     :db/valueType :db.type/instant
+     :db/cardinality :db.cardinality/one
+     :db/doc "The time this job was asserted"
+     :db.install/_attribute :db.part/db}
+
+    {:db/id (d/tempid :db.part/db)
+     :db/ident :job/priority
+     :db/valueType :db.type/long
+     :db/cardinality :db.cardinality/one
+     :db/doc
+     "A job's numeric priority; lower numbers are higher priority (0 = top priority)
+      (No default value)"
      :db.install/_attribute :db.part/db}])
 
 (def reserve-job
