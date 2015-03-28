@@ -14,8 +14,8 @@
   [a b]
   (let [prio-a (:job/priority a)
         prio-b (:job/priority b)]
-    (assert prio-a (str ":job/created-at not specified for: " (:job/id a)))
-    (assert prio-b (str ":job/created-at not specified for: " (:job/id b)))
+    (assert prio-a (str ":job/priority not specified for: " (:job/id a)))
+    (assert prio-b (str ":job/priority not specified for: " (:job/id b)))
     (let [res (compare prio-a prio-b)]
       (if (zero? res)
         (compare-by-date a b)
