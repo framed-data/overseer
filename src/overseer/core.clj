@@ -1,7 +1,10 @@
 (ns overseer.core
   "Internal core functions"
-  (:require [datomic.api :as d]
-            [clojure.set :as set]))
+  (:require [clojure.set :as set]
+            (clj-time
+              [core :as tcore]
+              [coerce :as tcoerce])
+            [datomic.api :as d]))
 
 (defn missing-dependencies
   "Compute dependencies that have been referenced but not
@@ -24,7 +27,8 @@
     {:db/id (d/tempid :db.part/user)
      :job/id (str (d/squuid))
      :job/status :unstarted
-     :job/type job-type}
+     :job/type job-type
+     :job/created-at (tcoerce/to-date (tcore/now))}
     tx))
 
 (defn job-assertions-by-type

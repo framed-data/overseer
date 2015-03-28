@@ -6,6 +6,7 @@
                [interfaces :as raven.interface])
             (overseer
               [core :as core]
+              [priority :as priority]
               [status :as status])))
 
 (def default-sleep-time 10000) ; ms
@@ -69,11 +70,11 @@
            job))))
 
 (defn select-and-reserve
-  "Attempt to select a ready job to run and reserve it, returning
-   nil on failure"
+  "Attempt to select the highest-priority ready job to run and
+   reserve it, returning nil on failure"
   [conn config jobs]
   {:pre [(not (empty? jobs))]}
-  (let [job (rand-nth jobs)
+  (let [job (priority/select-job jobs)
         ex-handler (->default-exception-handler config job)]
     (when (reserve-job ex-handler conn job)
       job)))

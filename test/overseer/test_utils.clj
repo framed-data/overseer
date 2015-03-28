@@ -1,6 +1,9 @@
 (ns overseer.test-utils
   "Helper functions for test suite"
-  (:require [datomic.api :as d]
+  (:require (clj-time
+              [core :as tcore]
+              [coerce :as tcoerce])
+            [datomic.api :as d]
             [overseer.schema :as schema]))
 
 (def test-config
@@ -25,9 +28,7 @@
    optionally accepting attributes for the job"
   ([conn] (->transact-job conn {}))
   ([conn job-data]
-    (let [
-          ;job-tempid (d/tempid :db.part/user (- (rand-int 2000)))
-          job-tempid (d/tempid :db.part/user -1000)
+    (let [job-tempid (d/tempid :db.part/user -1000)
           job-txn
           (merge {:db/id job-tempid
                   :job/id (str (d/squuid))
@@ -36,3 +37,6 @@
           {:keys [tempids]} @(d/transact conn [job-txn])
           job-ent-id (d/resolve-tempid (d/db conn) tempids job-tempid)]
       (assoc job-txn :db/id job-ent-id))))
+
+(defn inst [y m d h mm s]
+  (tcoerce/to-date (tcore/date-time y m d h mm s)))

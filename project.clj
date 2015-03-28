@@ -11,6 +11,7 @@
                  [org.clojure/tools.cli "0.3.1"]
                  [com.taoensso/timbre "3.4.0"]
                  [com.datomic/datomic-free "0.9.5130" :exclusions [joda-time]]
-                 [raven-clj "1.1.0"]]
+                 [raven-clj "1.1.0"]
+                 [clj-time "0.8.0"]]
   :profiles {:uberjar {:aot :all}}
   :main overseer.system)
