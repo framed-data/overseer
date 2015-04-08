@@ -10,7 +10,7 @@ Overseer is available on Clojars, and can be included in your leiningen `project
 [io.framed/overseer "0.4.1"]
 ```
 
-Overseer stores its operarational data in Datomic and requires its schema to be installed into the database. This can be done at the REPL (you should only have to do this once):
+Overseer stores its operational data in Datomic and requires its schema to be installed into the database. This can be done at the REPL (you should only have to do this once):
 
 ```clj
 (require '[datomic.api :as d])
