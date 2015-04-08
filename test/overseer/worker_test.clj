@@ -22,7 +22,7 @@
           config {}
           job {:job/id -1 :job/type :foo}
           ex-handler (w/->job-exception-handler config job)]
-      (is (= :aborted (ex-handler ex))))))
+      (is (= :aborted (:overseer/status (ex-handler ex)))))))
 
 (deftest test-reserve-job
  (timbre/with-log-level :report
