@@ -6,9 +6,7 @@ Overseer is a Clojure framework for defining and running complex job pipelines. 
 
 Overseer is available on Clojars, and can be included in your leiningen `project.clj` by adding the following to `:dependencies`:
 
-```clj
-[io.framed/overseer "0.4.1"]
-```
+[![Clojars Project](http://clojars.org/io.framed/overseer/latest-version.svg)](http://clojars.org/io.framed/overseer)
 
 Overseer stores its operational data in Datomic and requires its schema to be installed into the database. This can be done at the REPL (you should only have to do this once):
 
@@ -25,7 +23,7 @@ This should return `:ok` after a successful installation.
 By default, Overseer is configured to use the free distribution of Datomic, which uses transactor-local storage and is limited to 2 simultaneous peers. It's strongly suggested that Overseer be used in conjunction with [Datomic Pro](http://www.datomic.com/pricing.html) which supports more robust storage services such as DynamoDB/SQL and high availability. If you're already a user of Datomic Pro, you can use your own license with Overseer by putting the following in the `:dependencies` section of your `project.clj`:
 
 ```clj
-[io.framed/overseer "0.2.1" :exclusions [com.datomic/datomic-free]]
+[io.framed/overseer "VERSION" :exclusions [com.datomic/datomic-free]]
 ```
 
 ## Using Overseer
