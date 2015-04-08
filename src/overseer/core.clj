@@ -87,16 +87,17 @@
 
 (defn status-txn
   "Construct a single job update status txn"
-  [status job-id]
+  [{:keys [:overseer/status :overseer/failure]} job-id]
   {:db/id [:job/id job-id]
-   :job/status status})
+   :job/status status
+   :job/failure (pr-str failure)})
 
 (defn update-job-status-txns
   "Construct a (series of) txns for updating a job's status
    If job was aborted, then also abort all its dependents"
-  [db job-id status]
+  [db job-id {:keys [:overseer/status] :as status-map}]
   (let [job-aborted (= :aborted status)
         job-ids (if job-aborted
                   (cons job-id (transitive-dependents db job-id))
                   [job-id])]
-    (map (partial status-txn status) job-ids)))
+    (map (partial status-txn status-map) job-ids)))

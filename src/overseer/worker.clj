@@ -52,10 +52,13 @@
   [config job]
   (fn [ex]
     (let [default-handler (->default-exception-handler config job)
-          status (or (get (ex-data ex) :overseer/status)
-                     :failed)]
+          failure-map (or (ex-data ex)
+                          {:overseer/status :failed
+                           :overseer/failure {:reason :system/exception
+                                              :exception (class ex)
+                                              :message (.getMessage ex)}})]
       (default-handler ex)
-      status)))
+      failure-map)))
 
 (defn reserve-job
   "Attempt to reserve a job and return it, or return nil on failure"
@@ -117,13 +120,13 @@
          job-type :job/type} job
         handler (get job-handlers job-type)
         _ (assert handler (str "Handler not specified: " job-type))
-        exit-status (try-thunk (->job-exception-handler config job)
-                               (fn []
-                                 (invoke-handler handler job)
-                                 :finished))
-        txns (core/update-job-status-txns (d/db conn) job-id exit-status)]
-    (timbre/info "Job" job-id "exited with status" exit-status)
-    (if (= exit-status :aborted)
+        exit-status-map (try-thunk (->job-exception-handler config job)
+                                    (fn []
+                                      (invoke-handler handler job)
+                                      {:overseer/status :finished}))
+        txns (core/update-job-status-txns (d/db conn) job-id exit-status-map)]
+    (timbre/info "Job" job-id "exited with status" (:overseer/status exit-status-map))
+    (if (= (:overseer/status exit-status-map) :aborted)
       (timbre/info "Found :aborted job; aborting all dependents of" job-id))
     txns))
 

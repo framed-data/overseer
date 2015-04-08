@@ -45,10 +45,13 @@
 
 (defn fail
   "Control-flow helper to mark a job as failed from within a handler
-   (halts handler execution)"
-  ([] (fail ""))
-  ([msg]
-    (throw (ex-info msg {:overseer/status :failed}))))
+   (halts handler execution)
+  failure is a map of failure information that will be serialized via edn
+  e.g. {:reason :system/unknown :message \"An error occurred\"}"
+  ([] (fail {}))
+  ([failure]
+    (throw (ex-info "Overseer marked failure" {:overseer/status :failed
+                                               :overseer/failure failure}))))
 
 (defn abort
   "Control-flow helper to mark a job as aborted from within a handler

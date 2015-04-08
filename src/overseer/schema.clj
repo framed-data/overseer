@@ -26,6 +26,13 @@
      :db.install/_attribute :db.part/db}
 
     {:db/id (d/tempid :db.part/db)
+     :db/ident :job/failure
+     :db/valueType :db.type/string
+     :db/cardinality :db.cardinality/one
+     :db/doc "An edn serialized map containing a jobs failure information"
+     :db.install/_attribute :db.part/db}
+
+    {:db/id (d/tempid :db.part/db)
      :db/ident :job/dep
      :db/valueType :db.type/ref
      :db/cardinality :db.cardinality/many
