@@ -1,6 +1,6 @@
 # Overseer
 
-Overseer is a Clojure framework for defining and running complex job pipelines. It allows one to define complex workflows as a graph of dependent jobs, and automatically handles scheduling, execution, and failure handling among a pool of workers.
+Overseer is a Clojure framework for defining and running complex job pipelines. It allows one to define workflows as a graph of dependent jobs, and automatically handles scheduling, execution, and failure handling among a pool of workers.
 
 ## Installation
 
