@@ -8,6 +8,7 @@
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [circleci/clj-yaml "0.5.3"]
                  [org.clojure/data.fressian "0.2.0"]
+                 [clj-json "0.5.3"]
                  [org.clojure/tools.cli "0.3.1"]
                  [com.taoensso/timbre "3.4.0"]
                  [com.datomic/datomic-free "0.9.5130" :exclusions [joda-time]]

@@ -16,6 +16,12 @@
       (is (= :ok (w/try-thunk exception-handler safe-f)))
       (is (= :failed (w/try-thunk exception-handler unsafe-f))))))
 
+(deftest test-filter-serializable
+  (let [ok {:foo 1 :bar "2"}
+        bad {:quux 3 :norf (Object.)}]
+    (is (= ok (w/filter-serializable ok)))
+    (is (= {:quux 3} (w/filter-serializable bad)))))
+
 (deftest test-job-exception-handler
   (timbre/with-log-level :report
     (let [ex (ex-info "uh oh" {:overseer/status :aborted})
