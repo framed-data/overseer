@@ -109,6 +109,9 @@
   ([handler wrapper]
    (harness handler :process wrapper))
   ([handler k wrapper]
-   (if (map? handler)
-    (update-in handler [k] (fn [f] (wrapper (or f identity))))
-    (harness {:process handler} k wrapper))))
+   (let [id (if (= :post-process k)
+              (fn [job res] job)
+              (fn [job] job))]
+     (if (map? handler)
+      (update-in handler [k] (fn [f] (wrapper (or f id))))
+      (harness {:process handler} k wrapper)))))
