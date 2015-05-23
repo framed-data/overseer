@@ -70,8 +70,11 @@
                             (f (assoc job :foo :bar))))
             post-wrapper (fn [f]
                            (fn [job res]
-                             (f (assoc job :foo :quux) res)))
+                             (swap! state inc)))
             pre-harnessed (api/harness handler :pre-process pre-wrapper)
             post-harnessed (api/harness handler :post-process post-wrapper)]
+        (reset! state 0)
         (is (= :bar (w/invoke-handler pre-harnessed job)))
-        (is (= {:foo :quux} (w/invoke-handler post-harnessed job)))))))
+        (is (= 0 @state))
+        (w/invoke-handler post-harnessed job)
+        (is (= 1 @state))))))
