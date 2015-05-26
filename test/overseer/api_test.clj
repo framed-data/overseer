@@ -65,8 +65,16 @@
 
     (testing "harnessing missing keys"
       (let [handler {:process (fn [job] (:foo job))}
-            wrapper' (fn [f]
-                       (fn [job]
-                         (f (assoc job :foo :bar))))
-            harnessed (api/harness handler :pre-process wrapper')]
-        (is (= :bar (w/invoke-handler harnessed job)))))))
+            pre-wrapper (fn [f]
+                          (fn [job]
+                            (f (assoc job :foo :bar))))
+            post-wrapper (fn [f]
+                           (fn [job res]
+                             (swap! state inc)))
+            pre-harnessed (api/harness handler :pre-process pre-wrapper)
+            post-harnessed (api/harness handler :post-process post-wrapper)]
+        (reset! state 0)
+        (is (= :bar (w/invoke-handler pre-harnessed job)))
+        (is (= 0 @state))
+        (w/invoke-handler post-harnessed job)
+        (is (= 1 @state))))))
