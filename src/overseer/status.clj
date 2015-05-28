@@ -8,9 +8,8 @@
   [db status]
   (->> (d/q '[:find ?jid
               :in $ ?status
-              :where
-              [?e :job/status ?status]
-              [?e :job/id ?jid]]
+              :where [?e :job/status ?status]
+                     [?e :job/id ?jid]]
             db
             status)
        (map first)
@@ -20,10 +19,9 @@
   "Find all job IDs that are not yet complete."
   [db]
   (->> (d/q '[:find ?jid
-              :where
-              [?e :job/status ?s]
-              [((comp not contains?) #{:finished :aborted :failed} ?s)]
-              [?e :job/id ?jid]]
+              :where [?e :job/status ?s]
+                     [((comp not contains?) #{:finished :aborted :failed} ?s)]
+                     [?e :job/id ?jid]]
             db)
        (map first)
        (into #{})))
@@ -38,12 +36,11 @@
       unfinished
       (->> (d/q '[:find ?jid
                   :in $ [?unfinished-jids ...]
-                  :where
-                  [?j :job/id ?unfinished-jids]
-                  [?j :job/id ?jid]
-                  [?j :job/dep ?dj]
-                  [?dj :job/status ?djs]
-                  [(not= :finished ?djs)]]
+                  :where [?j :job/id ?unfinished-jids]
+                         [?j :job/id ?jid]
+                         [?j :job/dep ?dj]
+                         [?dj :job/status ?djs]
+                         [(not= :finished ?djs)]]
                 db
                 unfinished)
            (map first)
