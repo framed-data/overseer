@@ -41,14 +41,14 @@
          (into {}))))
 
 (defn sanitized-ex-data [ex]
-  (filter-serializable (or (ex-data ex) {})))
+  (when-let [data (ex-data ex)]
+    (filter-serializable data)))
 
 (defn sentry-capture [dsn ex extra-info]
-  (let [extra-info' (or extra-info {})
-        ex-data' (sanitized-ex-data ex)
-        ex-map
+  (let [ex-map
         (-> {:message (.getMessage ex)
-             :extra (merge extra-info' ex-data')}
+             :extra (merge (or extra-info {})
+                           (or (sanitized-ex-data ex) {}))}
             (raven.interface/stacktrace ex))]
     (try (raven/capture dsn ex-map)
       (catch Exception ex'
@@ -72,13 +72,11 @@
   [config job]
   (fn [ex]
     (let [default-handler (->default-exception-handler config job)
-          sanitized (sanitized-ex-data ex)
-          failure-map (if (seq sanitized)
-                        sanitized
-                        {:overseer/status :failed
-                         :overseer/failure {:reason :system/exception
-                                            :exception (class ex)
-                                            :message (.getMessage ex)}})]
+          failure-map (or (sanitized-ex-data ex)
+                          {:overseer/status :failed
+                           :overseer/failure {:reason :system/exception
+                                              :exception (class ex)
+                                              :message (.getMessage ex)}})]
       (default-handler ex)
       failure-map)))
 
