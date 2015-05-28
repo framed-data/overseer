@@ -33,14 +33,18 @@
    Works by finding all jobs that are not yet done, and subtracting the
    jobs who dependencies are not yet ready."
   [db]
-  (set/difference
-    (jobs-unfinished db)
-    (->> (d/q '[:find ?jid
-                :where
-                [?j :job/dep ?dj]
-                [?dj :job/status ?djs]
-                [(not= :finished ?djs)]
-                [?j :job/id ?jid]]
-              db)
-         (map first)
-         (into #{}))))
+  (let [unfinished (jobs-unfinished db)]
+    (set/difference
+      unfinished
+      (->> (d/q '[:find ?jid
+                  :in $ [?unfinished-jids ...]
+                  :where
+                  [?j :job/id ?unfinished-jids]
+                  [?j :job/id ?jid]
+                  [?j :job/dep ?dj]
+                  [?dj :job/status ?djs]
+                  [(not= :finished ?djs)]]
+                db
+                unfinished)
+           (map first)
+           (into #{})))))
