@@ -1,5 +1,6 @@
 (ns overseer.worker
-  (:require [datomic.api :as d]
+  (:require [clj-json.core :as json]
+            [datomic.api :as d]
             [taoensso.timbre :as timbre]
             (raven-clj
                [core :as raven]
@@ -23,12 +24,31 @@
        (map (partial core/->job-entity db))
        (filter (comp job-handlers :job/type))))
 
+(defn filter-serializable
+  "Used for stripping out non-serializable fields
+   before sending JSON to sentry"
+  [data]
+  (let [safe?
+        (fn [x]
+          (try (json/generate-string x)
+            (catch Exception ex false)))
+        sanitize
+        (fn [[k v]]
+          (when (and (safe? k) (safe? v))
+            [k v]))]
+    (->> (map sanitize data)
+         (filter identity)
+         (into {}))))
+
+(defn sanitized-ex-data [ex]
+  (when-let [data (ex-data ex)]
+    (filter-serializable data)))
+
 (defn sentry-capture [dsn ex extra-info]
-  (let [extra-info' (or extra-info {})
-        ex-data' (or (ex-data ex) {})
-        ex-map
+  (let [ex-map
         (-> {:message (.getMessage ex)
-             :extra (merge extra-info' ex-data')}
+             :extra (merge (or extra-info {})
+                           (or (sanitized-ex-data ex) {}))}
             (raven.interface/stacktrace ex))]
     (try (raven/capture dsn ex-map)
       (catch Exception ex'
@@ -52,7 +72,7 @@
   [config job]
   (fn [ex]
     (let [default-handler (->default-exception-handler config job)
-          failure-map (or (ex-data ex)
+          failure-map (or (sanitized-ex-data ex)
                           {:overseer/status :failed
                            :overseer/failure {:reason :system/exception
                                               :exception (class ex)
