@@ -65,6 +65,12 @@
       (sentry-capture dsn ex (select-keys job [:job/type :job/id])))
     nil))
 
+(defn default-failure-info [ex]
+  {:overseer/status :failed
+   :overseer/failure {:reason :system/exception
+                      :exception (class ex)
+                      :message (.getMessage ex)}})
+
 (defn ->job-exception-handler
   "Exception handler for job thunks; invokes the default handler,
    then returns a status keyword. Attempts to parse special signal
@@ -72,12 +78,10 @@
   [config job]
   (fn [ex]
     (let [default-handler (->default-exception-handler config job)
-          failure-map (or (sanitized-ex-data ex)
-                          {:overseer/status :failed
-                           :overseer/failure {:reason :system/exception
-                                              :exception (class ex)
-                                              :message (.getMessage ex)}})]
-      (default-handler ex)
+          exc-data (util/sanitized-ex-data ex)
+          failure-map (or exc-data (default-failure-info ex))]
+      (when-not (= :aborted (:overseer/status exc-data))
+        (default-handler ex))
       failure-map)))
 
 (defn reserve-job
