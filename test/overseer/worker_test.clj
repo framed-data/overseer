@@ -8,14 +8,6 @@
 
 (use-fixtures :each test-utils/setup-db-fixtures)
 
-(deftest test-job-exception-handler
-  (timbre/with-log-level :report
-    (let [ex (ex-info "uh oh" {:overseer/status :aborted})
-          config {}
-          job {:job/id -1 :job/type :foo}
-          ex-handler (w/->job-exception-handler config job)]
-      (is (= :aborted (:overseer/status (ex-handler ex)))))))
-
 (deftest test-reserve-job
  (timbre/with-log-level :report
    (let [conn (test-utils/connect)
