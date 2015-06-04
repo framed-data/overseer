@@ -55,15 +55,29 @@
         (timbre/error "Sentry exception handler failed")
         (timbre/error ex')))))
 
+(defn suppress-default?
+  "Suppress certain exceptions from the default exception handler
+   i.e. ineligible reservations thrown from overseer.schema/reserve-job"
+  [ex]
+  (and (instance? java.util.concurrent.ExecutionException ex)
+       (= :ineligible (:overseer/error (ex-data (.getCause ex))))))
+
 (defn ->default-exception-handler
   "Construct an handler function that by default logs exceptions
    and optionally sends to Sentry if configured"
   [config job]
   (fn [ex]
-    (timbre/error ex)
-    (if-let [dsn (get-in config [:sentry :dsn])]
-      (sentry-capture dsn ex (select-keys job [:job/type :job/id])))
-    nil))
+    (when-not (suppress-default? ex)
+      (timbre/error ex)
+      (if-let [dsn (get-in config [:sentry :dsn])]
+        (sentry-capture dsn ex (select-keys job [:job/type :job/id])))
+      nil)))
+
+(defn default-failure-info [ex]
+  {:overseer/status :failed
+   :overseer/failure {:reason :system/exception
+                      :exception (class ex)
+                      :message (.getMessage ex)}})
 
 (defn ->job-exception-handler
   "Exception handler for job thunks; invokes the default handler,
@@ -72,12 +86,10 @@
   [config job]
   (fn [ex]
     (let [default-handler (->default-exception-handler config job)
-          failure-map (or (sanitized-ex-data ex)
-                          {:overseer/status :failed
-                           :overseer/failure {:reason :system/exception
-                                              :exception (class ex)
-                                              :message (.getMessage ex)}})]
-      (default-handler ex)
+          exc-data (sanitized-ex-data ex)
+          failure-map (or exc-data (default-failure-info ex))]
+      (when-not (= :aborted (:overseer/status exc-data))
+        (default-handler ex))
       failure-map)))
 
 (defn reserve-job
