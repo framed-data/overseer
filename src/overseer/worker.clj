@@ -33,28 +33,32 @@
   [config job]
   (fn [ex]
     (timbre/error ex)
-    (if-let [dsn (get-in config [:sentry :dsn])]
-      (sentry-capture dsn ex (select-keys job [:job/type :job/id])))
+    (when-not (= :aborted (:overseer/status (ex-data ex)))
+      (if-let [dsn (get-in config [:sentry :dsn])]
+        (sentry-capture dsn ex (select-keys job [:job/type :job/id]))))
     nil))
 
-(defn default-failure-info [ex]
-  {:overseer/status :failed
-   :overseer/failure {:reason :system/exception
-                      :exception (class ex)
-                      :message (.getMessage ex)}})
+(defn failure-info
+  "Construct a map of information about an exception, including
+   user-supplied ex-data if present"
+  [ex]
+  (let [m {:overseer/status :failed
+           :overseer/failure {:reason :system/exception
+                              :exception (class ex)
+                              :message (.getMessage ex)}}]
+    (if-let [exc-data (ex-data ex)]
+      (assoc-in m [:overseer/failure :data] exc-data)
+      m)))
 
 (defn ->job-exception-handler
   "Exception handler for job thunks; invokes the default handler,
-   then returns a status keyword. Attempts to parse special signal
-   status out of ex, else defaults to :failed"
+   then returns a map of failure info, using user-provided ex-data if present.
+   Attempts to parse special signal status out of ex, else defaults to :failed"
   [config job]
   (fn [ex]
-    (let [default-handler (->default-exception-handler config job)
-          exc-data (util/sanitized-ex-data ex)
-          failure-map (or exc-data (default-failure-info ex))]
-      (when-not (= :aborted (:overseer/status exc-data))
-        (default-handler ex))
-      failure-map)))
+    (let [default-handler (->default-exception-handler config job)]
+      (default-handler ex))
+      (failure-info ex)))
 
 (defn reserve-job
   "Attempt to reserve a job and return it, or return nil on failure"
@@ -104,7 +108,7 @@
         (->> (pre-process job)
              (process)
              (post-process job)))
-    (ifn? handler)
+    (fn? handler)
       (handler job)
     :else
       (throw (Exception. "Handlers must either be a function or a map"))))
