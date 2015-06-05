@@ -84,7 +84,7 @@
   (if-let [dsn (get-in config [:sentry :dsn])]
     (fn [ex]
       (timbre/error ex)
-      (when-not (= :aborted (:overseer/status (ex-data ex)))
+      (when-not (:overseer/suppress? (ex-data ex))
         (let [extra (merge (select-keys job [:job/type :job/id])
                            (or (sanitized-ex-data ex) {}))]
           (sentry-capture dsn ex extra)))
