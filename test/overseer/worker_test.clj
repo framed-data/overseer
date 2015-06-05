@@ -8,28 +8,6 @@
 
 (use-fixtures :each test-utils/setup-db-fixtures)
 
-(deftest test-try-thunk
-  (timbre/with-log-level :report
-    (let [safe-f (fn [] :ok)
-          unsafe-f (fn [] (throw (Exception. "uh oh")))
-          exception-handler (fn [_] :failed)]
-      (is (= :ok (w/try-thunk exception-handler safe-f)))
-      (is (= :failed (w/try-thunk exception-handler unsafe-f))))))
-
-(deftest test-filter-serializable
-  (let [ok {:foo 1 :bar "2"}
-        bad {:quux 3 :norf (Object.)}]
-    (is (= ok (w/filter-serializable ok)))
-    (is (= {:quux 3} (w/filter-serializable bad)))))
-
-(deftest test-job-exception-handler
-  (timbre/with-log-level :report
-    (let [ex (ex-info "uh oh" {:overseer/status :aborted})
-          config {}
-          job {:job/id -1 :job/type :foo}
-          ex-handler (w/->job-exception-handler config job)]
-      (is (= :aborted (:overseer/status (ex-handler ex)))))))
-
 (deftest test-reserve-job
  (timbre/with-log-level :report
    (let [conn (test-utils/connect)
