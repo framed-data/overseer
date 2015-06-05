@@ -1,91 +1,24 @@
 (ns overseer.worker
-  (:require [clj-json.core :as json]
-            [datomic.api :as d]
+  (:require [datomic.api :as d]
             [taoensso.timbre :as timbre]
-            (raven-clj
-               [core :as raven]
-               [interfaces :as raven.interface])
             (overseer
               [core :as core]
-              [status :as status])))
+              [status :as status]
+              [errors :as errors])))
 
 (def default-sleep-time 10000) ; ms
-
-(defn try-thunk
-  "Returns the value of calling f, or of calling exception-handler
-   with any exception thrown"
-  [exception-handler f]
-  (try (f)
-    (catch Throwable ex
-      (exception-handler ex))))
 
 (defn ready-job-entities [db job-handlers]
   (->> (status/jobs-ready db)
        (map (partial core/->job-entity db))
        (filter (comp job-handlers :job/type))))
 
-(defn filter-serializable
-  "Used for stripping out non-serializable fields
-   before sending JSON to sentry"
-  [data]
-  (let [safe?
-        (fn [x]
-          (try (json/generate-string x)
-            (catch Exception ex false)))
-        sanitize
-        (fn [[k v]]
-          (when (and (safe? k) (safe? v))
-            [k v]))]
-    (->> (map sanitize data)
-         (filter identity)
-         (into {}))))
-
-(defn sanitized-ex-data [ex]
-  (when-let [data (ex-data ex)]
-    (filter-serializable data)))
-
-(defn sentry-capture [dsn ex extra-info]
-  (let [ex-map
-        (-> {:message (.getMessage ex)
-             :extra (merge (or extra-info {})
-                           (or (sanitized-ex-data ex) {}))}
-            (raven.interface/stacktrace ex))]
-    (try (raven/capture dsn ex-map)
-      (catch Exception ex'
-        (timbre/error "Sentry exception handler failed")
-        (timbre/error ex')))))
-
-(defn ->default-exception-handler
-  "Construct an handler function that by default logs exceptions
-   and optionally sends to Sentry if configured"
-  [config job]
-  (fn [ex]
-    (timbre/error ex)
-    (if-let [dsn (get-in config [:sentry :dsn])]
-      (sentry-capture dsn ex (select-keys job [:job/type :job/id])))
-    nil))
-
-(defn ->job-exception-handler
-  "Exception handler for job thunks; invokes the default handler,
-   then returns a status keyword. Attempts to parse special signal
-   status out of ex, else defaults to :failed"
-  [config job]
-  (fn [ex]
-    (let [default-handler (->default-exception-handler config job)
-          failure-map (or (sanitized-ex-data ex)
-                          {:overseer/status :failed
-                           :overseer/failure {:reason :system/exception
-                                              :exception (class ex)
-                                              :message (.getMessage ex)}})]
-      (default-handler ex)
-      failure-map)))
-
 (defn reserve-job
   "Attempt to reserve a job and return it, or return nil on failure"
   [exception-handler conn job]
   {:pre [job]}
   (let [{:keys [job/id job/type]} job]
-    (try-thunk exception-handler
+    (errors/try-thunk exception-handler
       #(do (timbre/info (format "Reserving job %s (%s)" id type))
            (core/reserve conn id)
            (timbre/info "Reserved job" id)
@@ -97,7 +30,7 @@
   [conn config jobs]
   {:pre [(not (empty? jobs))]}
   (let [job (rand-nth jobs)
-        ex-handler (->default-exception-handler config job)]
+        ex-handler (errors/->default-exception-handler config job)]
     (when (reserve-job ex-handler conn job)
       job)))
 
@@ -128,7 +61,7 @@
         (->> (pre-process job)
              (process)
              (post-process job)))
-    (ifn? handler)
+    (fn? handler)
       (handler job)
     :else
       (throw (Exception. "Handlers must either be a function or a map"))))
@@ -140,13 +73,15 @@
          job-type :job/type} job
         handler (get job-handlers job-type)
         _ (assert handler (str "Handler not specified: " job-type))
-        exit-status-map (try-thunk (->job-exception-handler config job)
-                                    (fn []
-                                      (invoke-handler handler job)
-                                      {:overseer/status :finished}))
+
+        {:keys [overseer/status] :as exit-status-map}
+        (errors/try-thunk (errors/->job-exception-handler config job)
+                          (fn []
+                            (invoke-handler handler job)
+                            {:overseer/status :finished}))
         txns (core/update-job-status-txns (d/db conn) job-id exit-status-map)]
-    (timbre/info "Job" job-id "exited with status" (:overseer/status exit-status-map))
-    (if (= (:overseer/status exit-status-map) :aborted)
+    (timbre/info "Job" job-id "exited with status" status)
+    (if (= status :aborted)
       (timbre/info "Found :aborted job; aborting all dependents of" job-id))
     txns))
 
