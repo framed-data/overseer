@@ -54,6 +54,7 @@
   [config job]
   (if-let [dsn (get-in config [:sentry :dsn])]
     (fn [ex]
+      (timbre/error ex)
       (when-not (= :aborted (:overseer/status (ex-data ex)))
         (let [extra (merge (select-keys job [:job/type :job/id])
                            (or (sanitized-ex-data ex) {}))]
