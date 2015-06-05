@@ -5,7 +5,8 @@
             (raven-clj
                [core :as raven]
                [interfaces :as raven.interface])
-            [taoensso.timbre :as timbre]))
+            [taoensso.timbre :as timbre])
+  (:import java.util.concurrent.ExecutionException))
 
 (defn try-thunk
   "Returns the value of calling f, or of calling exception-handler
@@ -48,19 +49,19 @@
         (timbre/error "Sentry exception handler failed")
         (timbre/error ex')))))
 
-(defn ->default-exception-handler
-  "Construct an handler function that by default logs exceptions
-   and optionally sends to Sentry if configured"
-  [config job]
-  (if-let [dsn (get-in config [:sentry :dsn])]
-    (fn [ex]
-      (timbre/error ex)
-      (when-not (= :aborted (:overseer/status (ex-data ex)))
-        (let [extra (merge (select-keys job [:job/type :job/id])
-                           (or (sanitized-ex-data ex) {}))]
-          (sentry-capture dsn ex extra))))
-    (fn [ex]
-      (timbre/error ex))))
+(defn- ineligible-exception?
+  "Was <ex> thrown by an ineligible job reservation?"
+  [ex]
+  (and (instance? ExecutionException ex)
+       (= :ineligible (:overseer/error (ex-data (.getCause ex))))))
+
+(defn reserve-exception-handler
+  "Return nil in case of reservation failure, and re-throw
+   all other errors"
+  [ex]
+  (if (ineligible-exception? ex)
+    (do (timbre/warn (.getMessage ex)) nil)
+    (throw ex)))
 
 (defn failure-info
   "Construct a map of information about an exception, including
@@ -80,7 +81,14 @@
    then returns a map of failure info, using user-provided ex-data if present.
    Attempts to parse special signal status out of ex, else defaults to :failed"
   [config job]
-  (fn [ex]
-    (let [default-handler (->default-exception-handler config job)]
-      (default-handler ex))
-      (failure-info ex)))
+  (if-let [dsn (get-in config [:sentry :dsn])]
+    (fn [ex]
+      (timbre/error ex)
+      (when-not (= :aborted (:overseer/status (ex-data ex)))
+        (let [extra (merge (select-keys job [:job/type :job/id])
+                           (or (sanitized-ex-data ex) {}))]
+          (sentry-capture dsn ex extra)))
+      (failure-info ex))
+    (fn [ex]
+      (timbre/error ex)
+      (failure-info ex))))

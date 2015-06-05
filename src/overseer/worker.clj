@@ -14,7 +14,7 @@
        (filter (comp job-handlers :job/type))))
 
 (defn reserve-job
-  "Attempt to reserve a job and return it, or return nil on failure"
+  "Attempt to reserve a job and return it"
   [exception-handler conn job]
   {:pre [job]}
   (let [{:keys [job/id job/type]} job]
@@ -29,9 +29,8 @@
    nil on failure"
   [conn config jobs]
   {:pre [(not (empty? jobs))]}
-  (let [job (rand-nth jobs)
-        ex-handler (errors/->default-exception-handler config job)]
-    (when (reserve-job ex-handler conn job)
+  (let [job (rand-nth jobs)]
+    (when (reserve-job errors/reserve-exception-handler conn job)
       job)))
 
 (defn invoke-handler

@@ -59,7 +59,8 @@
                     status (ffirst result)]
                 (if-not (#{:finished :aborted :failed} status)
                   [[:db/add [:job/id job-id] :job/status :started]]
-                  (throw (Exception. (str "Job status " status " not eligible for start.")))))})})
+                  (throw (ex-info (format "Job %s: status %s not eligible for start." job-id status)
+                                  {:overseer/error :ineligible}))))})})
 
 (defn install
   "Install Overseer's schema and DB functions into Datomic"
