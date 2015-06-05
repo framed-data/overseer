@@ -35,13 +35,15 @@
   (when-let [data (ex-data ex)]
     (filter-serializable data)))
 
-(defn sentry-capture [dsn ex extra-info]
-  (let [ex-map
-        (-> {:message (.getMessage ex)
-             :extra (merge (or extra-info {})
-                           (or (sanitized-ex-data ex) {}))}
-            (raven.interface/stacktrace ex))]
-    (try (raven/capture dsn ex-map)
+(defn sentry-capture
+  "Send an exception and an optional map of additional context
+   info to Sentry"
+  [dsn ex extra]
+  (let [event-map {:message (.getMessage ex) :extra (or extra {})}]
+    (try
+      (->> ex
+           (raven.interface/stacktrace event-map)
+           (raven/capture dsn))
       (catch Exception ex'
         (timbre/error "Sentry exception handler failed")
         (timbre/error ex')))))
@@ -50,12 +52,14 @@
   "Construct an handler function that by default logs exceptions
    and optionally sends to Sentry if configured"
   [config job]
-  (fn [ex]
-    (timbre/error ex)
-    (when-not (= :aborted (:overseer/status (ex-data ex)))
-      (if-let [dsn (get-in config [:sentry :dsn])]
-        (sentry-capture dsn ex (select-keys job [:job/type :job/id]))))
-    nil))
+  (if-let [dsn (get-in config [:sentry :dsn])]
+    (fn [ex]
+      (when-not (= :aborted (:overseer/status (ex-data ex)))
+        (let [extra (merge (select-keys job [:job/type :job/id])
+                           (or (sanitized-ex-data ex) {}))]
+          (sentry-capture dsn ex extra))))
+    (fn [ex]
+      (timbre/error ex))))
 
 (defn failure-info
   "Construct a map of information about an exception, including
