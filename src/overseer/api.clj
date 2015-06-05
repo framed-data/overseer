@@ -43,22 +43,22 @@
     (assert (empty? missing-handlers)
             (str "Invalid graph; missing handlers " (string/join ", " missing-handlers)))))
 
-(defn fail
-  "Control-flow helper to mark a job as failed from within a handler
-   (halts handler execution)
-  failure is a map of failure information that will be serialized via edn
-  e.g. {:reason :system/unknown :message \"An error occurred\"}"
-  ([] (fail {}))
-  ([failure]
-    (throw (ex-info "Overseer marked failure" {:overseer/status :failed
-                                               :overseer/failure failure}))))
+(defn abort-silent
+  "Like `abort`, but does not send exceptions to Sentry"
+  ([] (abort-silent ""))
+  ([msg]
+    (throw (ex-info msg {:overseer/status :aborted
+                         :overseer/suppress? true}))))
 
 (defn abort
   "Control-flow helper to mark a job as aborted from within a handler
-   and abort all of its dependents (halts handler execution)"
+   and abort all of its dependents (halts handler execution)
+
+   Fails loudly by default - errors will be logged and sent to Sentry.
+   Also see `abort-silent`"
   ([] (abort ""))
   ([msg]
-    (throw (ex-info msg {:overseer/status :aborted}))))
+   (throw (ex-info msg {:overseer/status :aborted}))))
 
 (defn harness
   "A mechanism to 'wrap' job handlers, giving one the ability

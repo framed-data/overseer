@@ -52,14 +52,15 @@
   [config job]
   (fn [ex]
     (timbre/error ex)
-    (when-not (= :aborted (:overseer/status (ex-data ex)))
+    (when-not (:overseer/suppress? (ex-data ex))
       (if-let [dsn (get-in config [:sentry :dsn])]
         (sentry-capture dsn ex (select-keys job [:job/type :job/id]))))
     nil))
 
 (defn failure-info
   "Construct a map of information about an exception, including
-   user-supplied ex-data if present"
+   user-supplied ex-data if present, to be recorded with the job
+   in Datomic"
   [ex]
   (let [exc-data (ex-data ex)
         m {:overseer/status (or (:overseer/status exc-data) :failed)
