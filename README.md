@@ -8,6 +8,8 @@ Overseer is available on Clojars, and can be included in your leiningen `project
 
 [![Clojars Project](http://clojars.org/io.framed/overseer/latest-version.svg)](http://clojars.org/io.framed/overseer)
 
+![Build Status](https://circleci.com/gh/framed-data/overseer.svg?style=shield&circle-token=caf3faafe0f68217721b26e571a84bc1088b5801)
+
 Overseer stores its operational data in Datomic and requires its schema to be installed into the database. This can be done at the REPL (you should only have to do this once):
 
 ```clj
