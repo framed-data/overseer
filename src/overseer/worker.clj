@@ -3,6 +3,7 @@
             [taoensso.timbre :as timbre]
             (overseer
               [core :as core]
+              [lottery :as lottery]
               [status :as status]
               [errors :as errors])))
 
@@ -29,7 +30,7 @@
    nil on failure"
   [conn config jobs]
   {:pre [(not (empty? jobs))]}
-  (let [job (rand-nth jobs)]
+  (let [job (lottery/run-lottery jobs)]
     (when (reserve-job errors/reserve-exception-handler conn job)
       job)))
 
