@@ -61,7 +61,10 @@
   [ex]
   (if (ineligible-exception? ex)
     (do (timbre/warn (.getMessage ex)) nil)
-    (throw ex)))
+    (do
+      (timbre/error "Unexpected exception in reservation:")
+      (timbre/error ex)
+      (throw ex))))
 
 (defn failure-info
   "Construct a map of information about an exception, including
