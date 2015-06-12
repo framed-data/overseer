@@ -81,8 +81,7 @@
 
 (defn ->job-exception-handler
   "Exception handler for job thunks; invokes the default handler,
-   then returns a map of failure info, using user-provided ex-data if present.
-   Attempts to parse special signal status out of ex, else defaults to :failed"
+   then returns a map of failure info, using user-provided ex-data if present."
   [config job]
   (if-let [dsn (get-in config [:sentry :dsn])]
     (fn [ex]

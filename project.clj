@@ -14,4 +14,4 @@
                  [com.datomic/datomic-free "0.9.5130" :exclusions [joda-time]]
                  [raven-clj "1.1.0"]]
   :profiles {:uberjar {:aot :all}}
-  :main overseer.system)
+  :main overseer.runner)

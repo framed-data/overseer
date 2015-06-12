@@ -68,7 +68,7 @@
 
 (defn run-job
   "Run a single job and return the appropriate status update txns"
-  [{:keys [config conn] :as system} job-handlers job]
+  [config conn job-handlers job]
   (let [{job-id :job/id
          job-type :job/type} job
         handler (get job-handlers job-type)
@@ -88,37 +88,32 @@
 (defn ->job-executor
   "Construct a function that will reserve a job off the queue and execute it,
    returning nil if the queue is empty"
-  [{:keys [config conn] :as system} job-handlers]
+  [config conn job-handlers]
   (fn []
     (let [jobs (ready-job-entities (d/db conn) job-handlers)]
       (when-not (empty? jobs)
         (timbre/info (count jobs) "handleable job(s) found.")
         (if-let [job (select-and-reserve conn config jobs)]
-          (let [txns (run-job system job-handlers job)]
+          (let [txns (run-job config conn job-handlers job)]
             @(d/transact conn txns)))))))
 
 (defn run
   "Run a worker, given:
    1. A thunk that will pop a job and handle if applicable;
       returning nil if queue is empty (executed repeatedly)
-   2. A signalling atom to control the worker
    3. The amount of time to sleep in between checking for jobs"
-  [job-executor signal sleep-time]
+  [job-executor sleep-time]
   {:pre [sleep-time]}
   (loop []
-    (if (= @signal :stop)
-      (timbre/info ":stop received; stopping")
-      (if (job-executor)
-        (recur)
-        (do (timbre/info "No handleable jobs found. Waiting.")
-            (Thread/sleep sleep-time)
-            (recur))))))
+    (if (job-executor)
+      (recur)
+      (do (timbre/info "No handleable jobs found. Waiting.")
+          (Thread/sleep sleep-time)
+          (recur)))))
 
-(defn start! [{:keys [config] :as system} job-handlers signal]
+(defn start! [config job-handlers]
   (timbre/info "Worker starting!")
-  (let [job-executor (->job-executor system job-handlers)
-        sleep-time (or (:sleep-time config) default-sleep-time)]
-    (run job-executor signal sleep-time)))
-
-(defn stop! [signal]
-  (reset! signal :stop))
+  (let [conn (d/connect (get-in config [:datomic :uri]))
+        job-executor (->job-executor config conn job-handlers)
+        sleep-time (get config :sleep-time default-sleep-time)]
+    (run job-executor sleep-time)))
