@@ -28,7 +28,7 @@
 (defn select-and-reserve
   "Attempt to select a ready job to run and reserve it, returning
    nil on failure"
-  [conn config jobs]
+  [conn jobs]
   {:pre [(not (empty? jobs))]}
   (let [job (lottery/run-lottery jobs)]
     (when (reserve-job errors/reserve-exception-handler conn job)
@@ -93,7 +93,7 @@
     (let [jobs (ready-job-entities (d/db conn) job-handlers)]
       (when-not (empty? jobs)
         (timbre/info (count jobs) "handleable job(s) found.")
-        (if-let [job (select-and-reserve conn config jobs)]
+        (if-let [job (select-and-reserve conn jobs)]
           (let [txns (run-job config conn job-handlers job)]
             @(d/transact conn txns)))))))
 
