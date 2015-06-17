@@ -5,7 +5,6 @@
             [datomic.api :as d]
             (overseer
               [core :as core]
-              [system :as system]
               [worker :as worker])))
 
 (def default-config
@@ -13,8 +12,9 @@
    :sleep-time worker/default-sleep-time})
 
 (def start
-  "Alias in order to start the system as a library"
-  system/start)
+  "Alias in order to start the system as a library
+  (start config job-handlers)"
+  worker/start!)
 
 (defn ->graph-txn
   "Entry point to add assert a sequence of jobs into the system.

@@ -22,4 +22,4 @@ APP_JAR=`readlink -e $1`
 OVERSEER_JAR=`readlink -e "../target/overseer-$OVERSEER_VERSION-standalone.jar"`
 
 CP="$APP_JAR:$OVERSEER_JAR"
-exec java -classpath $CP overseer.system ${*:2}
+exec java -classpath $CP overseer.runner ${*:2}

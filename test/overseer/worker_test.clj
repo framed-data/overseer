@@ -21,24 +21,24 @@
 
 (deftest test-run-job-success
   (timbre/with-log-level :report
-    (let [conn (test-utils/connect)
-          system {:conn conn :config {}}
+    (let [config {}
+          conn (test-utils/connect)
           job-handlers {:foo (fn [job] :ok)}
           job (test-utils/->transact-job conn {:job/type :foo})
           job-ent-id (:db/id job)
-          status-txns (w/run-job system job-handlers job)
+          status-txns (w/run-job config conn job-handlers job)
           {:keys [db-before db-after]} @(d/transact conn status-txns)]
       (is (= :unstarted (:job/status (d/entity db-before job-ent-id))))
       (is (= :finished (:job/status (d/entity db-after job-ent-id)))))))
 
 (deftest test-run-job-failure
   (timbre/with-log-level :report
-    (let [conn (test-utils/connect)
-          system {:conn conn}
+    (let [config {}
+          conn (test-utils/connect)
           job-handlers {:bar (fn [sys job] (throw (Exception. "uh oh")))}
           job (test-utils/->transact-job conn {:job/type :bar})
           job-ent-id (:db/id job)
-          status-txns (w/run-job system job-handlers job)
+          status-txns (w/run-job config conn job-handlers job)
           {:keys [db-before db-after]} @(d/transact conn status-txns)]
       (is (= :unstarted (:job/status (d/entity db-before job-ent-id))))
       (is (= :failed (:job/status (d/entity db-after job-ent-id)))))))
