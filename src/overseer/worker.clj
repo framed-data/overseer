@@ -1,5 +1,7 @@
 (ns overseer.worker
-  (:require [datomic.api :as d]
+  (:require [clj-json.core :as json]
+            [clojure.edn :as edn]
+            [datomic.api :as d]
             [taoensso.timbre :as timbre]
             (overseer
               [core :as core]
@@ -39,11 +41,11 @@
    expecting a job argument, or a map of the following structure:
 
      ; Optional, runs prior to main processing function and can be
-     ; used to transform input, for example.
+     ; used to set up prerequisite state, for example
      :pre-process (fn [job] ...)
 
      ; Required, the main processing function.
-     :process (fn [job] ...)
+     :process (fn [job args] ...)
 
      ; Optional, for post-processing after main execution. Receives
      ; the job and return value of the :process function as arguments.
@@ -51,15 +53,15 @@
 
      The default pre-processor passes the job through unmodified,
      and the default post-processor returns its result unmodified."
-  [handler job]
+  [handler {:keys [job/args] :as job}]
   (cond
     (map? handler)
       (let [{:keys [pre-process process post-process]
              :or {pre-process (fn [job] job)
                   post-process (fn [job res] res)}} handler]
-        (assert process "Expected handler map to define :process function")
-        (->> (pre-process job)
-             (process)
+        (assert process "Map handler must define :process function")
+        (pre-process job)
+        (->> (process job (edn/read-string args))
              (post-process job)))
     (fn? handler)
       (handler job)
