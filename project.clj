@@ -5,6 +5,8 @@
   :url "https://github.com/framed-data/overseer"
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
+  :scm {:name "git"
+        :url "git@github.com:framed-data/overseer.git"}
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [circleci/clj-yaml "0.5.3"]
                  [org.clojure/data.fressian "0.2.0"]
