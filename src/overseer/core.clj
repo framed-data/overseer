@@ -88,9 +88,11 @@
 (defn status-txn
   "Construct a single job update status txn"
   [{:keys [overseer/status overseer/failure]} job-id]
-  {:db/id [:job/id job-id]
-   :job/status status
-   :job/failure (pr-str failure)})
+  (let [base-txn {:db/id [:job/id job-id]
+                  :job/status status}]
+    (if failure
+      (assoc base-txn :job/failure (pr-str failure))
+      base-txn)))
 
 (defn update-job-status-txns
   "Construct a seq of txns for updating a job's status

@@ -125,3 +125,23 @@
       (is (= (->job-tempid :result2)
              (:job/dep (nth edge-assertions 3)))
           ":publish depends on :result2")))
+
+(deftest test-status-txn
+  (testing "with no failure"
+    (let [job-id "12345"
+          status :finished
+          job {:overseer/status status}
+          output-txn (core/status-txn job job-id)]
+      (is (= [:job/id job-id] (:db/id output-txn)))
+      (is (= status (:job/status output-txn)))
+      (is (= false (contains? output-txn :job/failure)))))
+  (testing "with failure"
+    (let [job-id "12345"
+          status :failed
+          failure {:foo :bar}
+          job {:overseer/status status
+               :overseer/failure failure}
+          output-txn (core/status-txn job job-id)]
+      (is (= [:job/id job-id] (:db/id output-txn)))
+      (is (= status (:job/status output-txn)))
+      (is (= (pr-str failure) (:job/failure output-txn))))))
