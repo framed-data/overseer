@@ -45,13 +45,13 @@
 
 (deftest test-invoke-handler
   (timbre/with-log-level :report
-    (let [job {:job/type :foo}
+    (let [job {:job/type :foo
+               :job/args (pr-str {:bar :quux})}
           handler-fn (fn [job] (reduce + 0 [1 2 3 4 5]))
           handler-map {:pre-process (fn [job]
-                                      (assert (= (:job/type job) :foo))
-                                      (assoc job :bar :quux))
-                       :process (fn [job]
-                                  (assert (= (:bar job) :quux))
+                                      (is (= (:job/type job) :foo)))
+                       :process (fn [job args]
+                                  (is (= (:bar args) :quux))
                                   [1 2 3 4 5])
                        :post-process (fn [job res] (reduce + 0 res))}
           bad-handler "not-fn-or-map"]
