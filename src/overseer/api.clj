@@ -59,7 +59,8 @@
 
 (defn harness
   "A mechanism to 'wrap' job handlers, giving one the ability
-   to provide additional context prior to execution.
+   to provide additional context prior to execution, somewhat similar
+   to Ring middleware.
 
    Accepts a standard job handler (map or function) and a
    `wrapper` function which will be called with the *function* specified

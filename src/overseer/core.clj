@@ -18,22 +18,23 @@
 
 (defn job-assertion
   "Construct a single job assertion, given a type and optional
-   user-provided txn data"
-  [job-type tx]
-  (merge
-    {:db/id (d/tempid :db.part/user)
-     :job/id (str (d/squuid))
-     :job/status :unstarted
-     :job/type job-type}
-    tx))
+   user-provided arguments (serialized to EDN)"
+  ([job-type]
+   (job-assertion job-type {}))
+  ([job-type args]
+   {:db/id (d/tempid :db.part/user)
+    :job/id (str (d/squuid))
+    :job/status :unstarted
+    :job/type job-type
+    :job/args (pr-str args)}))
 
 (defn job-assertions-by-type
   "Construct a map of {:job-type => assertion} with optional
-   txn data merged onto each assertion"
-  [job-types tx]
+   args attached to each job"
+  [job-types args]
   (zipmap
     (map identity job-types)
-    (map #(job-assertion % tx) job-types)))
+    (map #(job-assertion % args) job-types)))
 
 (defn job-dep-edges
   "Construct a list of assertions to of the graph edges, i.e marking
