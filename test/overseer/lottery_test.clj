@@ -6,5 +6,5 @@
   (let [j1 {:job/status :started :job/id 1}
         j2 {:job/status :unstarted :job/id 2}
         j3 {:job/status :unstarted :job/id 3}]
-    (is (= [j1 j1 j2 j2 j2 j3 j3 j3]
+    (is (= [j1 j2 j2 j2 j2 j3 j3 j3 j3]
            (lottery/generate-tickets [j1 j2 j3])))))

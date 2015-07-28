@@ -5,8 +5,8 @@
 
 (defn job-tickets [{:keys [job/status] :as job}]
   (let [ntickets (condp = status
-                   :unstarted 3
-                   :started 2
+                   :unstarted 4
+                   :started 1
                    1)]
     (repeat ntickets job)))
 
