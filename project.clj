@@ -15,6 +15,4 @@
                  [com.taoensso/timbre "4.0.2"]
                  [com.datomic/datomic-free "0.9.5130" :exclusions [joda-time]]
                  [clj-http "1.1.2"]
-                 [raven-clj "1.1.0"]]
-  :profiles {:uberjar {:aot :all}}
-  :main overseer.runner)
+                 [raven-clj "1.1.0"]])
