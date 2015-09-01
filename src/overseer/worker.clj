@@ -25,15 +25,6 @@
            (timbre/info "Reserved job" id)
            job))))
 
-(defn select-and-reserve
-  "Attempt to select a ready job to run and reserve it, returning
-   nil on failure"
-  [conn jobs]
-  {:pre [(not (empty? jobs))]}
-  (let [job (lottery/run-lottery jobs)]
-    (when (reserve-job errors/reserve-exception-handler conn job)
-      job)))
-
 (defn invoke-handler
   "Invoke a job handler, which can either be an ordinary function
    expecting a job argument, or a map of the following structure:
@@ -68,7 +59,7 @@
 
 (defn run-job
   "Run a single job and return the appropriate status update txns"
-  [config conn job-handlers job]
+  [config db job-handlers job]
   (let [{job-id :job/id
          job-type :job/type} job
         handler (get job-handlers job-type)
@@ -79,41 +70,35 @@
                           (fn []
                             (invoke-handler handler job)
                             {:overseer/status :finished}))
-        txns (core/update-job-status-txns (d/db conn) job-id exit-status-map)]
+        txns (core/update-job-status-txns db job-id exit-status-map)]
     (timbre/info "Job" job-id "exited with status" status)
     (if (= status :aborted)
       (timbre/info "Found :aborted job; aborting all dependents of" job-id))
     txns))
 
-(defn ->job-executor
-  "Construct a function that will reserve a job off the queue and execute it,
-   returning nil if the queue is empty"
-  [config conn job-handlers]
-  (fn []
-    (let [jobs (ready-job-entities (d/db conn) job-handlers)]
-      (when-not (empty? jobs)
-        (timbre/info (count jobs) "handleable job(s) found.")
-        (if-let [job (select-and-reserve conn jobs)]
-          (let [txns (run-job config conn job-handlers job)]
-            @(d/transact conn txns)))))))
-
-(defn run
-  "Run a worker, given:
-   1. A thunk that will pop a job and handle if applicable;
-      returning nil if queue is empty (executed repeatedly)
-   3. The amount of time to sleep in between checking for jobs"
-  [job-executor sleep-time]
-  {:pre [sleep-time]}
-  (loop []
-    (if (job-executor)
-      (recur)
-      (do (timbre/info "No handleable jobs found. Waiting.")
-          (Thread/sleep sleep-time)
-          (recur)))))
-
-(defn start! [config job-handlers]
+(defn start!
+  "Run a worker.  Takes a config and a map {job-type job-handler}."
+  [config job-handlers]
   (timbre/info "Worker starting!")
   (let [conn (d/connect (get-in config [:datomic :uri]))
-        job-executor (->job-executor config conn job-handlers)
-        sleep-time (get config :sleep-time default-sleep-time)]
-    (run job-executor sleep-time)))
+        sleep-time (get config :sleep-time default-sleep-time)
+        jobs (atom [])
+        signal (atom true)]
+    (future
+      (while @signal
+        (reset! jobs (ready-job-entities (d/db conn) job-handlers))
+        (Thread/sleep 2000))
+      (timbre/info "Stopping job detector."))
+    (future
+      (while @signal
+        (if (empty? @jobs)
+          (do (timbre/info "No handleable jobs found.  Wating.")
+              (Thread/sleep sleep-time))
+          (do (timbre/info "Found" (count @jobs) "handleable jobs.")
+              (let [job (lottery/run-lottery @jobs)]
+                (swap! jobs (partial filter (partial not= job)))
+                (when (reserve-job errors/reserve-exception-handler conn job)
+                  (->> (run-job config (d/db conn) job-handlers job)
+                       (d/transact-async conn)))))))
+      (timbre/info "Stopping job executor."))
+    signal))
