@@ -1,4 +1,4 @@
-(ns overseer.worker
+(ns ^:no-doc overseer.worker
   (:require [datomic.api :as d]
             [taoensso.timbre :as timbre]
             (overseer

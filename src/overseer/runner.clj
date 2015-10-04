@@ -1,4 +1,4 @@
-(ns overseer.runner
+(ns ^:no-doc overseer.runner
   (:require [clojure.java.io :as io]
             [clojure.tools.cli :as cli]
             [clojure.string :as string]

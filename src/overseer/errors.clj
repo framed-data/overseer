@@ -1,4 +1,4 @@
-(ns overseer.errors
+(ns ^:no-doc overseer.errors
   "Functions for catching/handling various types of exceptions
    that arise during handler execution"
   (:require [clj-json.core :as json]

@@ -1,7 +1,8 @@
 (ns overseer.schema
+  "Functions for controlling Overseer's operational data"
   (:require [datomic.api :as d]))
 
- (def schema-txn
+ (def ^:no-doc schema-txn
    [{:db/id (d/tempid :db.part/db)
      :db/ident :job/id
      :db/valueType :db.type/string
@@ -41,7 +42,7 @@
      that must be completed before this job can run."
      :db.install/_attribute :db.part/db}])
 
-(def reserve-job
+(def ^:no-doc reserve-job
   "Datomic database function to atomically reserve a job.
    Either reserves the given job id, or throws."
   {:db/id (d/tempid :db.part/user)
@@ -63,7 +64,8 @@
                                   {:overseer/error :ineligible}))))})})
 
 (defn install
-  "Install Overseer's schema and DB functions into Datomic"
+  "Install Overseer's schema and DB functions into Datomic.
+   Should only be necessary a single time. Returns :ok on success"
   [conn]
   @(d/transact conn (conj schema-txn reserve-job))
   :ok)

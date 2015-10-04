@@ -1,4 +1,4 @@
-(ns overseer.core
+(ns ^:no-doc overseer.core
   "Internal core functions"
   (:require [datomic.api :as d]
             [clojure.set :as set]))
@@ -19,13 +19,15 @@
 (defn job-assertion
   "Construct a single job assertion, given a type and optional
    user-provided txn data"
-  [job-type tx]
-  (merge
-    {:db/id (d/tempid :db.part/user)
-     :job/id (str (d/squuid))
-     :job/status :unstarted
-     :job/type job-type}
-    tx))
+  ([job-type]
+   (job-assertion job-type {}))
+  ([job-type tx]
+   (merge
+     {:db/id (d/tempid :db.part/user)
+      :job/id (str (d/squuid))
+      :job/status :unstarted
+      :job/type job-type}
+     tx)))
 
 (defn job-assertions-by-type
   "Construct a map of {:job-type => assertion} with optional
