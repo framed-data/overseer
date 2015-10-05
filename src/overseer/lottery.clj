@@ -1,4 +1,4 @@
-(ns overseer.lottery
+(ns ^:no-doc overseer.lottery
   "Lottery-style selection of ready jobs based on status
    Unstarted jobs are prioritized over started jobs, and thus
    receive more 'tickets'")

@@ -1,7 +1,7 @@
 (def version (clojure.string/trim-newline (slurp "VERSION")))
 
 (defproject io.framed/overseer version
-  :description "A framework for defining and running expressive job pipelines"
+  :description "A Clojure framework for defining and running expressive data pipelines"
   :url "https://github.com/framed-data/overseer"
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
@@ -15,4 +15,5 @@
                  [com.taoensso/timbre "4.0.2"]
                  [com.datomic/datomic-free "0.9.5130" :exclusions [joda-time]]
                  [clj-http "1.1.2"]
-                 [raven-clj "1.1.0"]])
+                 [raven-clj "1.1.0"]]
+  :plugins [[codox "0.8.13"]])
