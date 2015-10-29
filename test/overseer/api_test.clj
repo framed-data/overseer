@@ -1,9 +1,13 @@
 (ns overseer.api-test
  (:require [clojure.test :refer :all]
            [datomic.api :as d]
+           [taoensso.timbre :as timbre]
            (overseer
              [api :as api]
+             [test-utils :as test-utils]
              [worker :as w])))
+
+(use-fixtures :each test-utils/setup-db-fixtures)
 
 (deftest test-harness
   (let [state (atom 0)
@@ -78,3 +82,19 @@
         (is (= 0 @state))
         (w/invoke-handler post-harnessed job)
         (is (= 1 @state))))))
+
+(deftest test-fault
+  (timbre/with-log-level :report
+    (let [config {}
+          conn (test-utils/connect)
+          job-ran? (atom false)
+          job-handlers {:bar (fn [job]
+                               (reset! job-ran? true)
+                               (api/fault "transient problem occurred"))}
+          job (test-utils/->transact-job conn {:job/type :bar})
+          job-ent-id (:db/id job)
+          status-txns (w/run-job config conn job-handlers job)
+          {:keys [db-before db-after]} @(d/transact conn status-txns)]
+      (is (= :unstarted (:job/status (d/entity db-before job-ent-id))))
+      (is @job-ran?)
+      (is (= :unstarted (:job/status (d/entity db-after job-ent-id)))))))
