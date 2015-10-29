@@ -79,9 +79,10 @@
 
 (defn fault
   "Signal that a transient fault has occurred and the worker should
-  release and unstart the job so that it can be retried at a later time."
+   release and unstart the job so that it can be retried at a later time."
   [msg]
-  (throw (ex-info msg {:overseer/status :unstarted})))
+  (throw (ex-info msg {:overseer/status :unstarted
+                       :overseer/suppress? true})))
 
 (defn harness
   "A mechanism to 'wrap' job handlers, giving one the ability
