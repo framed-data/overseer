@@ -1,104 +1,69 @@
 (ns ^:no-doc overseer.worker
+  "A Worker is the main top-level unit of Overseer. Internally, it acts as a
+   supervisor for several processes that coordinate to select ready
+   jobs from the queue and execute them"
   (:require [datomic.api :as d]
             [taoensso.timbre :as timbre]
+            [framed.std.core :as std :refer [future-loop]]
             (overseer
+              [config :as config]
               [core :as core]
-              [lottery :as lottery]
-              [status :as status]
-              [errors :as errors])))
+              [executor :as exc]
+              [status :as status])))
 
-(def default-sleep-time 10000) ; ms
+(def detector-fut
+  "A Future for the ready job detector process, responsible
+   for periodically updating a local cache used when starting
+   new jobs"
+  (atom nil))
+
+(def detector-sleep-time
+  "Pause time between ready job detector runs (ms)"
+  2000)
+
+(def executor-fut
+  "A Future for the main job executor process"
+  (atom nil))
+
+(def supervisor-fut
+  "A Future for a supervisor process that continually checks the
+   completion status of the currently-running job, and terminates
+   the process if it has since been finished (to be restarted by
+   an external supervisor)"
+  (atom nil))
+
+(def supervisor-sleep-time
+  "Pause time between supervisor job completion checks (ms)"
+  10000)
 
 (defn ready-job-entities [db job-handlers]
   (->> (status/jobs-ready db)
        (map (partial core/->job-entity db))
        (filter (comp job-handlers :job/type))))
 
-(defn reserve-job
-  "Attempt to reserve a job and return it"
-  [exception-handler conn job]
-  {:pre [job]}
-  (let [{:keys [job/id job/type]} job]
-    (errors/try-thunk exception-handler
-      #(do (timbre/info (format "Reserving job %s (%s)" id type))
-           (core/reserve conn id)
-           (timbre/info "Reserved job" id)
-           job))))
-
-(defn invoke-handler
-  "Invoke a job handler, which can either be an ordinary function
-   expecting a job argument, or a map of the following structure:
-
-     ; Optional, runs prior to main processing function and can be
-     ; used to transform input, for example.
-     :pre-process (fn [job] ...)
-
-     ; Required, the main processing function.
-     :process (fn [job] ...)
-
-     ; Optional, for post-processing after main execution. Receives
-     ; the job and return value of the :process function as arguments.
-     :post-process (fn [job res] ...)
-
-     The default pre-processor passes the job through unmodified,
-     and the default post-processor returns its result unmodified."
-  [handler job]
-  (cond
-    (map? handler)
-      (let [{:keys [pre-process process post-process]
-             :or {pre-process (fn [job] job)
-                  post-process (fn [job res] res)}} handler]
-        (assert process "Expected handler map to define :process function")
-        (->> (pre-process job)
-             (process)
-             (post-process job)))
-    (fn? handler)
-      (handler job)
-    :else
-      (throw (Exception. "Handlers must either be a function or a map"))))
-
-(defn run-job
-  "Run a single job and return the appropriate status update txns"
-  [config db job-handlers job]
-  (let [{job-id :job/id
-         job-type :job/type} job
-        handler (get job-handlers job-type)
-        _ (assert handler (str "Handler not specified: " job-type))
-
-        {:keys [overseer/status] :as exit-status-map}
-        (errors/try-thunk (errors/->job-exception-handler config job)
-                          (fn []
-                            (invoke-handler handler job)
-                            {:overseer/status :finished}))
-        txns (core/update-job-status-txns db job-id exit-status-map)]
-    (timbre/info "Job" job-id "exited with status" status)
-    (if (= status :aborted)
-      (timbre/info "Found :aborted job; aborting all dependents of" job-id))
-    txns))
-
 (defn start!
-  "Run a worker.  Takes a config and a map {job-type job-handler}."
+  "Run a worker. Takes a config and handlers as a map of {job-type job-handler}."
   [config job-handlers]
   (timbre/info "Worker starting!")
-  (let [conn (d/connect (get-in config [:datomic :uri]))
-        sleep-time (get config :sleep-time default-sleep-time)
-        jobs (atom [])
-        signal (atom true)]
-    (future
-      (while @signal
-        (reset! jobs (ready-job-entities (d/db conn) job-handlers))
-        (Thread/sleep 2000))
-      (timbre/info "Stopping job detector."))
-    (future
-      (while @signal
-        (if (empty? @jobs)
-          (do (timbre/info "No handleable jobs found.  Wating.")
-              (Thread/sleep sleep-time))
-          (do (timbre/info "Found" (count @jobs) "handleable jobs.")
-              (let [job (lottery/run-lottery @jobs)]
-                (swap! jobs (partial filter (partial not= job)))
-                (when (reserve-job errors/reserve-exception-handler conn job)
-                  (->> (run-job config (d/db conn) job-handlers job)
-                       (d/transact-async conn)))))))
-      (timbre/info "Stopping job executor."))
-    signal))
+  (let [conn (d/connect (config/datomic-uri config))
+        ready-jobs (atom [])
+        current-job (atom nil)]
+    (reset! detector-fut
+      (future-loop
+        (reset! ready-jobs (ready-job-entities (d/db conn) job-handlers))
+        (Thread/sleep detector-sleep-time)))
+
+    (reset! executor-fut (exc/->executor config conn job-handlers ready-jobs current-job))
+
+    (when (config/supervise? config)
+      (reset! supervisor-fut
+        (future-loop
+          (when-let [{job-id :job/id} @current-job]
+            (let [current-status (:job/status (d/entity (d/db conn) [:job/id job-id]))]
+              (when (and (= :finished current-status)
+                         (= job-id (:job/id @current-job))) ; Short jobs could have finished already!
+                (timbre/info (format "Supervisor detected completion of %s; terminate executor" job-id))
+                (System/exit 1))))
+          (Thread/sleep supervisor-sleep-time))))
+
+    (std/map-from-keys detector-fut executor-fut supervisor-fut)))

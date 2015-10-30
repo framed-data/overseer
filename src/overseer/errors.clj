@@ -5,7 +5,8 @@
             (raven-clj
                [core :as raven]
                [interfaces :as raven.interface])
-            [taoensso.timbre :as timbre])
+            [taoensso.timbre :as timbre]
+            [overseer.config :as config])
   (:import java.util.concurrent.ExecutionException))
 
 (defn try-thunk
@@ -33,8 +34,8 @@
          (into {}))))
 
 (defn sanitized-ex-data [ex]
-  (when-let [data (ex-data ex)]
-    (filter-serializable data)))
+  (when-let [exc-data (ex-data ex)]
+    (filter-serializable exc-data)))
 
 (defn sentry-capture
   "Send an exception and an optional map of additional context
@@ -83,7 +84,7 @@
   "Exception handler for job thunks; invokes the default handler,
    then returns a map of failure info, using user-provided ex-data if present."
   [config job]
-  (if-let [dsn (get-in config [:sentry :dsn])]
+  (if-let [dsn (config/sentry-dsn config)]
     (fn [ex]
       (timbre/error ex)
       (when-not (:overseer/suppress? (ex-data ex))

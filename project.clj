@@ -15,5 +15,6 @@
                  [com.taoensso/timbre "4.0.2"]
                  [com.datomic/datomic-free "0.9.5130" :exclusions [joda-time]]
                  [clj-http "1.1.2"]
-                 [raven-clj "1.1.0"]]
+                 [raven-clj "1.1.0"]
+                 [io.framed/std "0.1.2"]]
   :plugins [[codox "0.8.13"]])
