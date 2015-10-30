@@ -1,8 +1,18 @@
+# Required
 datomic:
   uri: datomic:free://localhost:4334/overseer
 
-# How long to sleep (in ms) if job queue is empty
-sleep-time: 5000
+# Optional: How long to sleep (in ms) if job queue is empty
+# (Default: 10000)
+sleep-time: 1000
 
+# Optional: Whether or not to enable finished job supervisor, which kills the
+# worker process as soon as it detects that the current job has been finished
+# by another node (Default: false)
+# If enabled, make sure you have an external supervisor such as
+# Upstart restarting the worker!
+supervise: false
+
+# Optional: If present, errors will be logged to Sentry
 sentry:
   dsn: https://username:password@app.getsentry.com/port
