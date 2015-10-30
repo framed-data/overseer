@@ -4,13 +4,14 @@
             [clojure.string :as string]
             [datomic.api :as d]
             (overseer
+              [config :as config]
               [core :as core]
+              [executor :as exc]
               [worker :as worker])))
 
 (def default-config
   "Map of default configuration (connects to local Datomic)"
-  {:datomic {:uri "datomic:free://localhost:4334/overseer"}
-   :sleep-time worker/default-sleep-time})
+  config/default-config)
 
 (def start
   "Start the system as a library

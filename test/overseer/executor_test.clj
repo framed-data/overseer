@@ -1,10 +1,10 @@
-(ns overseer.worker-test
+(ns overseer.executor-test
   (:require [clojure.test :refer :all]
             [datomic.api :as d]
             [taoensso.timbre :as timbre]
             (overseer
               [test-utils :as test-utils]
-              [worker :as w])))
+              [executor :as exc])))
 
 (use-fixtures :each test-utils/setup-db-fixtures)
 
@@ -15,7 +15,7 @@
          job (test-utils/->transact-job conn)
          job-ent-id (:db/id job)]
      (is (= job
-            (w/reserve-job exception-handler conn job)))
+            (exc/reserve-job exception-handler conn job)))
      (is (= :started
             (:job/status (d/entity (d/db conn) job-ent-id)))))))
 
@@ -26,7 +26,7 @@
           job-handlers {:foo (fn [job] :ok)}
           job (test-utils/->transact-job conn {:job/type :foo})
           job-ent-id (:db/id job)
-          status-txns (w/run-job config conn job-handlers job)
+          status-txns (exc/run-job config conn job-handlers job)
           {:keys [db-before db-after]} @(d/transact conn status-txns)]
       (is (= :unstarted (:job/status (d/entity db-before job-ent-id))))
       (is (= :finished (:job/status (d/entity db-after job-ent-id)))))))
@@ -38,7 +38,7 @@
           job-handlers {:bar (fn [sys job] (throw (Exception. "uh oh")))}
           job (test-utils/->transact-job conn {:job/type :bar})
           job-ent-id (:db/id job)
-          status-txns (w/run-job config conn job-handlers job)
+          status-txns (exc/run-job config conn job-handlers job)
           {:keys [db-before db-after]} @(d/transact conn status-txns)]
       (is (= :unstarted (:job/status (d/entity db-before job-ent-id))))
       (is (= :failed (:job/status (d/entity db-after job-ent-id)))))))
@@ -55,6 +55,6 @@
                                   [1 2 3 4 5])
                        :post-process (fn [job res] (reduce + 0 res))}
           bad-handler "not-fn-or-map"]
-      (is (= 15 (w/invoke-handler handler-fn job)))
-      (is (= 15 (w/invoke-handler handler-map job)))
-      (is (thrown? Exception (w/invoke-handler bad-handler job))))))
+      (is (= 15 (exc/invoke-handler handler-fn job)))
+      (is (= 15 (exc/invoke-handler handler-map job)))
+      (is (thrown? Exception (exc/invoke-handler bad-handler job))))))
