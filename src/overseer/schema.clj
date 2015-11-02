@@ -30,7 +30,7 @@
      :db/ident :job/failure
      :db/valueType :db.type/string
      :db/cardinality :db.cardinality/one
-     :db/doc "An edn serialized map containing a jobs failure information"
+     :db/doc "An EDN serialized map containing a jobs failure information"
      :db.install/_attribute :db.part/db}
 
     {:db/id (d/tempid :db.part/db)
@@ -40,10 +40,18 @@
      :db/doc
      "Dependency of this job ('parent'). Refers to other jobs
      that must be completed before this job can run."
+     :db.install/_attribute :db.part/db}
+
+    {:db/id (d/tempid :db.part/db)
+     :db/ident :job/heartbeat
+     :db/valueType :db.type/long
+     :db/cardinality :db.cardinality/one
+     :db/doc "Unix timestamp of periodic heartbeat from node working on this job"
      :db.install/_attribute :db.part/db}])
 
 (def ^:no-doc reserve-job
-  "Datomic database function to atomically reserve a job.
+  "Datomic database function to atomically reserve a job (mark as started
+   and include initial heartbeat)
    Either reserves the given job id, or throws."
   {:db/id (d/tempid :db.part/user)
    :db/ident :reserve-job
@@ -57,9 +65,11 @@
                                                    [$data ?e :job/status ?s]]
                              db
                              job-id)
-                    status (ffirst result)]
+                    status (ffirst result)
+                    heartbeat (quot (System/currentTimeMillis) 1000)]
                 (if-not (#{:finished :aborted :failed} status)
-                  [[:db/add [:job/id job-id] :job/status :started]]
+                  [[:db/add [:job/id job-id] :job/status :started]
+                   [:db/add [:job/id job-id] :job/heartbeat heartbeat]]
                   (throw (ex-info (format "Job %s: status %s not eligible for start." job-id status)
                                   {:overseer/error :ineligible}))))})})
 

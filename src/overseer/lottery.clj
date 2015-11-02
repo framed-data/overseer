@@ -1,12 +1,12 @@
 (ns ^:no-doc overseer.lottery
   "Lottery-style selection of ready jobs based on status
-   Unstarted jobs are prioritized over started jobs, and thus
-   receive more 'tickets'")
+
+   NOTE: While this may seem superfluous, future work may
+   make this more relevant")
 
 (defn job-tickets [{:keys [job/status] :as job}]
   (let [ntickets (condp = status
-                   :unstarted 4
-                   :started 1
+                   :unstarted 1
                    1)]
     (repeat ntickets job)))
 

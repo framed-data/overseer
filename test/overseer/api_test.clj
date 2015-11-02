@@ -7,8 +7,6 @@
              [test-utils :as test-utils]
              [executor :as exc])))
 
-(use-fixtures :each test-utils/setup-db-fixtures)
-
 (deftest test-harness
   (let [state (atom 0)
         job {:foo "bar"}

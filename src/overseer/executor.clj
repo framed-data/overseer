@@ -1,4 +1,4 @@
-(ns overseer.executor
+(ns ^:no-doc overseer.executor
   "An Executor is the process that actually grabs a job
    and performs its work; thus, it is the real substance
    of a Worker."
@@ -71,7 +71,7 @@
       (timbre/info "Found :aborted job; aborting all dependents of" job-id))
     txns))
 
-(defn ->executor
+(defn start-executor
   "Construct an executor future that will perpetually run a scheduler over
    the `ready-jobs` atom to reserve and run jobs."
   [config conn job-handlers ready-jobs current-job]

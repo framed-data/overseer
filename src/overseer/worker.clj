@@ -9,32 +9,12 @@
               [config :as config]
               [core :as core]
               [executor :as exc]
+              [heartbeat :as heartbeat]
               [status :as status])))
-
-(def detector-fut
-  "A Future for the ready job detector process, responsible
-   for periodically updating a local cache used when starting
-   new jobs"
-  (atom nil))
 
 (def detector-sleep-time
   "Pause time between ready job detector runs (ms)"
   2000)
-
-(def executor-fut
-  "A Future for the main job executor process"
-  (atom nil))
-
-(def supervisor-fut
-  "A Future for a supervisor process that continually checks the
-   completion status of the currently-running job, and terminates
-   the process if it has since been finished (to be restarted by
-   an external supervisor)"
-  (atom nil))
-
-(def supervisor-sleep-time
-  "Pause time between supervisor job completion checks (ms)"
-  10000)
 
 (defn ready-job-entities [db job-handlers]
   (->> (status/jobs-ready db)
@@ -47,23 +27,25 @@
   (timbre/info "Worker starting!")
   (let [conn (d/connect (config/datomic-uri config))
         ready-jobs (atom [])
-        current-job (atom nil)]
-    (reset! detector-fut
-      (future-loop
-        (reset! ready-jobs (ready-job-entities (d/db conn) job-handlers))
-        (Thread/sleep detector-sleep-time)))
+        current-job (atom nil)
 
-    (reset! executor-fut (exc/->executor config conn job-handlers ready-jobs current-job))
-
-    (when (config/supervise? config)
-      (reset! supervisor-fut
+        detector-fut
         (future-loop
-          (when-let [{job-id :job/id} @current-job]
-            (let [current-status (:job/status (d/entity (d/db conn) [:job/id job-id]))]
-              (when (and (= :finished current-status)
-                         (= job-id (:job/id @current-job))) ; Short jobs could have finished already!
-                (timbre/info (format "Supervisor detected completion of %s; terminate executor" job-id))
-                (System/exit 1))))
-          (Thread/sleep supervisor-sleep-time))))
+          (reset! ready-jobs (ready-job-entities (d/db conn) job-handlers))
+          (Thread/sleep detector-sleep-time))
 
-    (std/map-from-keys detector-fut executor-fut supervisor-fut)))
+        executor-fut
+        (exc/start-executor config conn job-handlers ready-jobs current-job)
+
+        heartbeat-fut
+        (when (config/heartbeat? config)
+          (heartbeat/start-heartbeat config conn current-job))
+
+        heartbeat-monitor-fut
+        (when (config/heartbeat? config)
+          (heartbeat/start-monitor config conn))]
+    (std/map-from-keys
+      detector-fut
+      executor-fut
+      heartbeat-fut
+      heartbeat-monitor-fut)))

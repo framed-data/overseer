@@ -6,8 +6,6 @@
               [test-utils :as test-utils]
               [executor :as exc])))
 
-(use-fixtures :each test-utils/setup-db-fixtures)
-
 (deftest test-reserve-job
  (timbre/with-log-level :report
    (let [conn (test-utils/connect)

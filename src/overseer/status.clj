@@ -15,12 +15,11 @@
        (map first)
        (set)))
 
-(defn jobs-unfinished
-  "Find all job IDs that are not yet complete."
+(defn jobs-unstarted
+  "Find all job IDs that are not yet started."
   [db]
   (->> (d/q '[:find ?jid
-              :where [?e :job/status ?s]
-                     [((comp not contains?) #{:finished :aborted :failed} ?s)]
+              :where [?e :job/status :unstarted]
                      [?e :job/id ?jid]]
             db)
        (map first)
@@ -31,17 +30,17 @@
    Works by finding all jobs that are not yet done, and subtracting the
    jobs who dependencies are not yet ready."
   [db]
-  (let [unfinished (jobs-unfinished db)]
+  (let [unstarted (jobs-unstarted db)]
     (set/difference
-      unfinished
+      unstarted
       (->> (d/q '[:find ?jid
-                  :in $ [?unfinished-jids ...]
-                  :where [?j :job/id ?unfinished-jids]
+                  :in $ [?unstarted-jids ...]
+                  :where [?j :job/id ?unstarted-jids]
                          [?j :job/id ?jid]
                          [?j :job/dep ?dj]
                          [?dj :job/status ?djs]
                          [(not= :finished ?djs)]]
                 db
-                unfinished)
+                unstarted)
            (map first)
            (into #{})))))

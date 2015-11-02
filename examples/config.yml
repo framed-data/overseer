@@ -1,18 +1,29 @@
+# Many configuration values are optional, and Overseer should 'just work'
+# out of the box. All options are shown here for completeness.
+
 # Required
 datomic:
   uri: datomic:free://localhost:4334/overseer
 
 # Optional: How long to sleep (in ms) if job queue is empty
-# (Default: 10000)
-sleep-time: 1000
+# Default: 10000
+sleep-time: 10000
 
-# Optional: Whether or not to enable finished job supervisor, which kills the
-# worker process as soon as it detects that the current job has been finished
-# by another node (Default: false)
-# If enabled, make sure you have an external supervisor such as
-# Upstart restarting the worker!
-supervise: false
+# Optional: Enable job heartbeats, whereby each node will periodically
+# persist a timestamp via the DB and also act as a monitor that resets
+# other jobs detected to be failing heartbeat checks
+#
+#   enabled - Default: true
+#   sleep-time: How long to sleep between persisting heartbeats (per-worker)
+#               Default: 60000
+#   tolerance: How many heartbeats can fail before job is considered dead
+#              to be reset by a monitor (Default: 5)
+heartbeat:
+  enabled: true
+  sleep-time: 60000
+  tolerance: 5
 
-# Optional: If present, errors will be logged to Sentry
+# Optional: If present, errors in handlers will be logged to Sentry
+# Disabled by default
 sentry:
   dsn: https://username:password@app.getsentry.com/port
