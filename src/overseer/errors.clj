@@ -80,8 +80,8 @@
       m)))
 
 (defn ->job-exception-handler
-  "Exception handler for job thunks; invokes the default handler,
-   then returns a map of failure info, using user-provided ex-data if present."
+  "Exception handler for job thunks; log error then send to Sentry if configured
+   Returns a map of failure info for consumption by worker"
   [config job]
   (if-let [dsn (get-in config [:sentry :dsn])]
     (fn [ex]
