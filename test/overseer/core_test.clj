@@ -6,8 +6,6 @@
              [status :as status]
              [test-utils :as test-utils])))
 
-(use-fixtures :each test-utils/setup-db-fixtures)
-
 (deftest test-missing-dependencies
   (let [g1 {:foo []
             :bar [:foo]}
@@ -65,8 +63,8 @@
                  (contains? jobs-ready (:job/id (d/entity db-after ent-id))))]
     (is (ready? (resolve-tempid -1000))
         "It finds :unstarted jobs with no dependencies")
-    (is (ready? (resolve-tempid -1001))
-        "It finds :started jobs with no dependencies")
+    (is (not (ready? (resolve-tempid -1001)))
+        "It excludes :started jobs")
     (is (not (ready? (resolve-tempid -1002)))
         "excludes jobs with unfinished dependencies")
     (is (not (ready? (resolve-tempid -1003)))

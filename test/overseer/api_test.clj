@@ -5,9 +5,7 @@
            (overseer
              [api :as api]
              [test-utils :as test-utils]
-             [worker :as w])))
-
-(use-fixtures :each test-utils/setup-db-fixtures)
+             [executor :as exc])))
 
 (deftest test-harness
   (let [state (atom 0)
@@ -23,7 +21,7 @@
                       :quux)
             harnessed (api/harness handler wrapper)]
         (reset! state 0)
-        (is (= :quux (w/invoke-handler harnessed job)))
+        (is (= :quux (exc/invoke-handler harnessed job)))
         (is (= 2 @state))
         (is (map? harnessed))))
 
@@ -33,7 +31,7 @@
                       :quux)
             harnessed (api/harness handler :pre-process wrapper)]
         (reset! state 0)
-        (is (= :quux (w/invoke-handler harnessed job)))
+        (is (= :quux (exc/invoke-handler harnessed job)))
         (is (= 2 @state))
         (is (= #{:pre-process :process} (set (keys harnessed))))))
 
@@ -41,7 +39,7 @@
       (let [handler {:process (fn [job] (swap! state inc))}
             harnessed (api/harness handler wrapper)]
         (reset! state 0)
-        (w/invoke-handler harnessed job)
+        (exc/invoke-handler harnessed job)
         (is (= 2 @state))))
 
     (testing "map handler - :pre-process"
@@ -49,7 +47,7 @@
                      :process (fn [job] job)}
             harnessed (api/harness handler :pre-process wrapper)]
         (reset! state 0)
-        (w/invoke-handler harnessed job)
+        (exc/invoke-handler harnessed job)
         (is (= 2 @state))))
 
     (testing "map handler - :post-process"
@@ -64,7 +62,7 @@
                                      res)}
             harnessed (api/harness handler :post-process post-wrapper)]
         (reset! state 0)
-        (is (= :quux (w/invoke-handler harnessed job)))
+        (is (= :quux (exc/invoke-handler harnessed job)))
         (is (= 2 @state))))
 
     (testing "harnessing missing keys"
@@ -78,9 +76,9 @@
             pre-harnessed (api/harness handler :pre-process pre-wrapper)
             post-harnessed (api/harness handler :post-process post-wrapper)]
         (reset! state 0)
-        (is (= :bar (w/invoke-handler pre-harnessed job)))
+        (is (= :bar (exc/invoke-handler pre-harnessed job)))
         (is (= 0 @state))
-        (w/invoke-handler post-harnessed job)
+        (exc/invoke-handler post-harnessed job)
         (is (= 1 @state))))))
 
 (deftest test-fault
@@ -93,7 +91,7 @@
                                (api/fault "transient problem occurred"))}
           job (test-utils/->transact-job conn {:job/type :bar})
           job-ent-id (:db/id job)
-          status-txns (w/run-job config conn job-handlers job)
+          status-txns (exc/run-job config conn job-handlers job)
           {:keys [db-before db-after]} @(d/transact conn status-txns)]
       (is (= :unstarted (:job/status (d/entity db-before job-ent-id))))
       (is @job-ran?)

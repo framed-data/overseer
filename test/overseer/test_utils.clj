@@ -1,33 +1,25 @@
 (ns overseer.test-utils
-  "Helper functions for test suite"
   (:require [datomic.api :as d]
+            [framed.std.core :as std]
             [overseer.schema :as schema]))
 
-(def test-config
-  {:datomic {:uri "datomic:mem://overseer_test"}})
-
-(def test-datomic-uri (get-in test-config [:datomic :uri]))
+(defn bootstrap-db-uri
+  "Create/bootstrap a fresh memory DB and return its uri"
+  []
+  (let [uri (str "datomic:mem://" (std/rand-alphanumeric 32))]
+    (d/create-database uri)
+    (schema/install (d/connect uri))
+    uri))
 
 (defn connect []
-  (d/connect test-datomic-uri))
-
-(defn refresh-database [datomic-uri]
-  (d/delete-database datomic-uri)
-  (d/create-database datomic-uri)
-  (schema/install (d/connect datomic-uri)))
-
-(defn setup-db-fixtures [f]
-  (refresh-database test-datomic-uri)
-  (f))
+  (d/connect (bootstrap-db-uri)))
 
 (defn ->transact-job
   "Helper to transact an unstarted job and return it,
    optionally accepting attributes for the job"
   ([conn] (->transact-job conn {}))
   ([conn job-data]
-    (let [
-          ;job-tempid (d/tempid :db.part/user (- (rand-int 2000)))
-          job-tempid (d/tempid :db.part/user -1000)
+    (let [job-tempid (d/tempid :db.part/user -1000)
           job-txn
           (merge {:db/id job-tempid
                   :job/id (str (d/squuid))
