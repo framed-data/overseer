@@ -1,4 +1,4 @@
-(ns overseer.heartbeat
+(ns ^:no-doc overseer.heartbeat
   "Processes to send heartbeats for running jobs, and monitor
    other jobs for failures
 
