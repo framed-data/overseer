@@ -23,7 +23,6 @@
     (try
       (when-let [{job-id :job/id} @current-job]
         (let [heartbeat (std.time/datetime->unix (tcore/now))]
-          (timbre/info (format "Heartbeat %s: %s" job-id heartbeat))
           @(d/transact conn [{:db/id [:job/id job-id]
                               :job/heartbeat heartbeat}])))
       (Thread/sleep (config/heartbeat-sleep-time config))
