@@ -2,7 +2,8 @@
   (:require [clojure.test :refer :all]
             [datomic.api :as d]
             [taoensso.timbre :as timbre]
-            [overseer.errors :as errors]))
+            [overseer.errors :as errors])
+  (:import java.util.concurrent.ExecutionException))
 
 (deftest test-try-thunk
   (timbre/with-log-level :report
@@ -11,6 +12,16 @@
           exception-handler (fn [_] :failed)]
       (is (= :ok (errors/try-thunk exception-handler safe-f)))
       (is (= :failed (errors/try-thunk exception-handler unsafe-f))))))
+
+(deftest test-failure-info
+  (testing "It extracts status info from IExceptionInfo"
+    (let [ex (ex-info "" {:overseer/status :aborted})]
+      (is (= :aborted (:overseer/status (errors/failure-info ex))))))
+  (testing "It extracts status info from IExceptionInfo in (nested-)threads"
+    (let [exc-data {:overseer/status :aborted}
+          ex (ExecutionException.
+               (ExecutionException. (ex-info "boom" exc-data)))]
+      (is (= :aborted (:overseer/status (errors/failure-info ex)))))))
 
 (deftest test-filter-serializable
   (let [ok {:foo 1 :bar "2"}
