@@ -81,7 +81,7 @@
           (Thread/sleep (config/sleep-time config)))
       (do (timbre/info "Found" (count @ready-jobs) "handleable jobs.")
           (let [{job-id :job/id :as job} (lottery/run-lottery @ready-jobs)]
-            (swap! ready-jobs (fn [jobs] (filter #(not= job-id (:job/id %)) jobs)))
+            (swap! ready-jobs disj job)
             (when (reserve-job errors/reserve-exception-handler conn job)
               (reset! current-job job)
               (let [txns (run-job config (d/db conn) job-handlers job)]
