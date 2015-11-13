@@ -16,17 +16,22 @@
   "Pause time between ready job detector runs (ms)"
   2000)
 
-(defn ready-job-entities [db job-handlers]
+(defn ready-job-entities
+  "Return the set of job entities that are ready to execute,
+   filtering to those defined in job-handlers (this allows different
+   nodes to solely execute certain types of jobs, if desired)"
+  [db job-handlers]
   (->> (status/jobs-ready db)
        (map (partial core/->job-entity db))
-       (filter (comp job-handlers :job/type))))
+       (filter (comp job-handlers :job/type))
+       set))
 
 (defn start!
   "Run a worker. Takes a config and handlers as a map of {job-type job-handler}."
   [config job-handlers]
   (timbre/info "Worker starting!")
   (let [conn (d/connect (config/datomic-uri config))
-        ready-jobs (atom [])
+        ready-jobs (atom #{})
         current-job (atom nil)
 
         detector-fut
