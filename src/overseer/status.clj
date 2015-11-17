@@ -6,24 +6,22 @@
 (defn jobs-with-status
   "Find all job IDs with a given status (e.g. :unstarted)"
   [db status]
-  (->> (d/q '[:find ?jid
+  (->> (d/q '[:find [?jid ...]
               :in $ ?status
               :where [?e :job/status ?status]
                      [?e :job/id ?jid]]
             db
             status)
-       (map first)
-       (set)))
+       set))
 
 (defn jobs-unstarted
   "Find all job IDs that are not yet started."
   [db]
-  (->> (d/q '[:find ?jid
+  (->> (d/q '[:find [?jid ...]
               :where [?e :job/status :unstarted]
                      [?e :job/id ?jid]]
             db)
-       (map first)
-       (into #{})))
+       set))
 
 (defn jobs-ready
   "Find all job IDs that are ready to run.
@@ -33,7 +31,7 @@
   (let [unstarted (jobs-unstarted db)]
     (set/difference
       unstarted
-      (->> (d/q '[:find ?jid
+      (->> (d/q '[:find [?jid ...]
                   :in $ [?unstarted-jids ...]
                   :where [?j :job/id ?unstarted-jids]
                          [?j :job/id ?jid]
@@ -42,5 +40,4 @@
                          [(not= :finished ?djs)]]
                 db
                 unstarted)
-           (map first)
-           (into #{})))))
+           set))))

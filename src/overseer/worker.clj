@@ -1,4 +1,4 @@
-(ns ^:no-doc overseer.worker
+(ns overseer.worker
   "A Worker is the main top-level unit of Overseer. Internally, it acts as a
    supervisor for several processes that coordinate to select ready
    jobs from the queue and execute them"
@@ -12,11 +12,11 @@
               [heartbeat :as heartbeat]
               [status :as status])))
 
-(def detector-sleep-time
+(def ^:private detector-sleep-time
   "Pause time between ready job detector runs (ms)"
   2000)
 
-(defn ready-job-entities
+(defn- ready-job-entities
   "Return the set of job entities that are ready to execute,
    filtering to those defined in job-handlers (this allows different
    nodes to solely execute certain types of jobs, if desired)"
