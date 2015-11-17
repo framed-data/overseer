@@ -19,7 +19,7 @@
     (errors/try-thunk exception-handler
       (fn []
         (timbre/info (format "Reserving job %s (%s)" id type))
-        (core/reserve conn id)
+        @(d/transact conn [[:reserve-job id]])
         (timbre/info "Reserved job" id)
         job))))
 

@@ -50,13 +50,6 @@
   {:pre [job-id]}
   (d/pull db '[:*] [:job/id job-id]))
 
-(defn reserve
-  "Transact the DB to reserve the given job, or throw an exception.
-   Requires the overseer.schema/reserve-job database function to be in-schema."
-  [conn job-id]
-  {:pre [job-id]}
-  @(d/transact conn [[:reserve-job job-id]]))
-
 (defn ent-dependents
   "Find all jobs entities that depend on ent"
   [db ent]
