@@ -28,7 +28,7 @@
    expecting a job argument, or a map of the following structure:
 
      ; Optional, runs prior to main processing function and can be
-     ; used to set up prerequisite state, for example.
+     ; used to ex: set up prerequisite state
      :pre-process (fn [job] ...)
 
      ; Required, the main processing function.
@@ -44,8 +44,8 @@
              :or {pre-process (fn [job] job)
                   post-process (fn [job res] res)}} handler]
         (assert process "Expected handler map to define :process function")
-        (->> (pre-process job)
-             (process)
+        (pre-process job)
+        (->> (process job)
              (post-process job)))
     (fn? handler)
       (handler job)
