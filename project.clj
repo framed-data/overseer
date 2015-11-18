@@ -3,8 +3,8 @@
 (defproject io.framed/overseer version
   :description "A Clojure framework for defining and running expressive data pipelines"
   :url "https://github.com/framed-data/overseer"
-  :license {:name "MIT License"
-            :url "http://opensource.org/licenses/MIT"}
+  :license {:name "Eclipse Public License"
+            :url "http://www.eclipse.org/legal/epl-v10.html"}
   :scm {:name "git"
         :url "https://github.com/framed-data/overseer"}
   :dependencies [[org.clojure/clojure "1.6.0"]
