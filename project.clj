@@ -7,7 +7,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :scm {:name "git"
         :url "https://github.com/framed-data/overseer"}
-  :dependencies [[org.clojure/clojure "1.6.0"]
+  :dependencies [[org.clojure/clojure "1.7.0"]
                  [circleci/clj-yaml "0.5.3"]
                  [org.clojure/data.fressian "0.2.0"]
                  [clj-json "0.5.3"]
