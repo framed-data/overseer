@@ -46,10 +46,9 @@
     (let [job {:job/type :foo}
           handler-fn (fn [job] (reduce + 0 [1 2 3 4 5]))
           handler-map {:pre-process (fn [job]
-                                      (assert (= (:job/type job) :foo))
-                                      (assoc job :bar :quux))
+                                      (assert (= (:job/type job) :foo)))
                        :process (fn [job]
-                                  (assert (= (:bar job) :quux))
+                                  (assert (= (:job/type job) :foo))
                                   [1 2 3 4 5])
                        :post-process (fn [job res] (reduce + 0 res))}
           bad-handler "not-fn-or-map"]
