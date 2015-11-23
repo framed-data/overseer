@@ -1,4 +1,4 @@
-(ns overseer.worker
+(ns ^:no-doc overseer.worker
   "A Worker is the main top-level unit of Overseer. Internally, it acts as a
    supervisor for several processes that coordinate to select ready
    jobs from the queue and execute them"
