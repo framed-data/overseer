@@ -2,7 +2,8 @@
   "An Executor is the process that actually grabs a job
    and performs its work; thus, it is the real substance
    of a Worker."
-  (:require [datomic.api :as d]
+  (:require [clojure.edn :as edn]
+            [datomic.api :as d]
             [taoensso.timbre :as timbre]
             [framed.std.core :refer [future-loop]]
             (overseer
@@ -38,19 +39,20 @@
      ; the job and return value of the :process function as arguments.
      :post-process (fn [job res] ...)"
   [handler job]
-  (cond
-    (map? handler)
-      (let [{:keys [pre-process process post-process]
-             :or {pre-process (fn [job] job)
-                  post-process (fn [job res] res)}} handler]
-        (assert process "Expected handler map to define :process function")
-        (pre-process job)
-        (->> (process job)
-             (post-process job)))
-    (fn? handler)
-      (handler job)
-    :else
-      (throw (Exception. "Handlers must either be a function or a map"))))
+  (let [job' (update job :job/args edn/read-string)]
+    (cond
+      (map? handler)
+        (let [{:keys [pre-process process post-process]
+               :or {pre-process (fn [job] job)
+                    post-process (fn [job res] res)}} handler]
+          (assert process "Expected handler map to define :process function")
+          (pre-process job')
+          (->> (process job')
+               (post-process job')))
+      (fn? handler)
+        (handler job')
+      :else
+        (throw (Exception. "Handlers must either be a function or a map")))))
 
 (defn run-job
   "Run a single job and return the appropriate status update txns"
