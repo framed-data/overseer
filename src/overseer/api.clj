@@ -13,21 +13,22 @@
   "Map of default configuration (connects to local Datomic)"
   config/default-config)
 
-(def start
-  "Start the system as a library
-   (start config handler-map)"
+(def
+  ^{:doc "Start the system as a library, given a map of
+  {job-type job-handler}"
+    :arglists '([config job-handlers])}
+  start
   worker/start!)
 
-(def job-assertion
-  "Construct a single job assertion, given a type and optional
-   user-provided txn data
-   (job-assertion job-type)
-   (job-assertion job-type arg-map)
-
-   Ex:
-     (def tx1 (job-assertion :my-job-type-1))
-     (def tx2 (job-assertion :my-job-type-2 {:job/organization-id 123}))
-     @(d/transact conn [tx1 tx2])"
+(def
+  ^{:doc "Construct a single unstarted job assertion, given a type and optional
+  arguments (serializable via EDN)
+  Ex:
+    (let [tx1 (job-assertion :my-job-type-1)
+          tx2 (job-assertion :my-job-type-2 {:organization-id 123})]
+      @(d/transact conn [tx1 tx2]))"
+    :arglists '([job-type] [job-type args])}
+  job-assertion
   core/job-assertion)
 
 (defn ->graph-txn
