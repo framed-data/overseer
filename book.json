@@ -1,0 +1,9 @@
+{
+  "title": "Overseer",
+  "language": "en",
+  "gitbook": ">=2.0.0",
+  "structure": {
+    "readme": "README.md",
+    "summary": "doc/guide/SUMMARY.md"
+  }
+}
