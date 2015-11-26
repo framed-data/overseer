@@ -1,0 +1,5 @@
+# Advanced - Heartbeats
+
+For reliable job execution, Overseer uses a heartbeat mechanism whereby each worker periodically transacts a heartbeat (a Unix timestamp), while working on a job. Each worker also acts as a monitor, which is responsible for finding other jobs that are failing heartbeats (for when a worker has been unexpectedly interrupted or shutdown), and resetting them to be unstarted for later execution and completion.
+
+This all happens in the background and has no affect on your handler code. However, since heartbeats use timestamps from each node to decide 'liveness', the system is vulnerable to some amount of clock drift that happens on machines. Tolerances are a knob that can be configured to avoid this in part (by default, a job must fail five one-minute heartbeat periods in a row before being considered dead), but in addition it is suggested to use [NTP](http://www.ntp.org/) or similar to keep clocks as synchronized as possible. NTP is not a perfect system, but fortunately millisecond- or shorter precision is not strictly necessary here, drifts of many seconds or minutes are more problematic.
