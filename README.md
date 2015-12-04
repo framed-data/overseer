@@ -13,7 +13,8 @@ Overseer is available on Clojars, and can be included in your leiningen `project
 ![Build Status](https://circleci.com/gh/framed-data/overseer.svg?style=shield&circle-token=caf3faafe0f68217721b26e571a84bc1088b5801)
 
 ## Usage
-You can find comprehensive information on installing, configuring, and using Overseer in the [wiki](https://github.com/framed-data/overseer/wiki).
+If you're looking to get up and running in just a few minutes, check out the [quickstart](https://github.com/framed-data/overseer/wiki/Quickstart).
+The [User Guide](https://www.gitbook.com/book/framed/overseer/) contains comprehensive information on installing, configuring, and using Overseer.
 
 ## License
 Eclipse Public License v1.0 (see [LICENSE](https://github.com/framed-data/overseer/blob/master/LICENSE))

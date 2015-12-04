@@ -47,7 +47,7 @@ If you'd like, you can even write your own exception harness and catch handler e
         (throw ex))))) ; Re-propagate to Overseer for default behavior (or not)
 ```
 
-After defining a harness, in the `job-handlers` map one specifies
+After defining a harness, in the `job-handlers` map one calls `overseer.api/harness` with your handler and harness functions:
 
 ```clj
 {:my-job (overseer.api/harness my-job/run my-harness)}
@@ -68,4 +68,14 @@ a post-processor:
 {:my-job (overseer.api/harness my-job/run :post-process my-harness)}
 ```
 
-If you attempt to harness a missing stage for a given job, the wrapper will be invoked with a properly-formed identity function, meaning you can write your harnesses in a single consistent fashion, and, for example, universally harness a post-processor for a set of handlers that may or may not define their own post-processor.
+If you attempt to harness a missing stage for a given job, the wrapper will be invoked with a properly-formed identity function, meaning you can write your harnesses in a single consistent fashion, and, for example, universally harness a post-processor for a set of handlers that may or may not define their own post-processor. For example:
+
+```
+(def job-handlers
+  (->> {:foo job.foo/run
+        :bar job.bar/run
+        :baz job.baz/run}
+       (map (fn [[job-type job-handler]]
+              [job-type (overseer.api/harness job-handler my-harness)]))
+       (into {}))
+```

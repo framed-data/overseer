@@ -1,6 +1,6 @@
 # Inserting jobs
 
-Once your worker is up and running, you'll need to insert some jobs into the system to get any work done. Jobs are ordinary entities tracked in Datomic, and inserting jobs is just asserting some transactions. Overseer provides helpers to construct such transactions.
+Once your worker is up and running, you'll need to insert some jobs into the system to get any work done. Jobs are entities tracked in Datomic, and inserting jobs is just asserting some transactions. Overseer provides helpers to construct such transactions.
 
 ## Inserting an entire graph
 

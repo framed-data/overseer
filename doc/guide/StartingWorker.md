@@ -29,6 +29,6 @@ lein uberjar
 java -jar target/myapp-0.1.0-SNAPSHOT-standalone.jar myapp.core
 ```
 
-You should see a series of "No handleable jobs found..." log messages, until you insert some jobs to run. Workers log basic information to stdout (via [Timbre](https://github.com/ptaoussanis/timbre)), and it can be useful to aggregation this information in a central log processor.
+You should see a series of "No handleable jobs found..." log messages, until you insert some jobs to run. Workers log basic information to stdout (via [Timbre](https://github.com/ptaoussanis/timbre)), and it can be useful to aggregate this information in a central log processor.
 
 It's highly recommended to run Overseer within an external process supervisor such as [Upstart](http://upstart.ubuntu.com/). While ordinary exceptions within your handlers will not crash the system, it's still recommended to use a restarting supervisor for maximum uptime in case of an unexpected system error. An example Upstart configuration is provided [here](https://github.com/framed-data/overseer/blob/master/examples/upstart/overseer.conf).
