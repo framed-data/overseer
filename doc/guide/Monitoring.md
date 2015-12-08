@@ -6,4 +6,4 @@ At time of writing, Overseer does not include any sort of web UI for monitoring 
 
 - `(overseer.status/jobs-with-status db status)` - Find all job IDs with a given status (e.g. `:unstarted`)
 
-Since Overseer jobs are just normal entities in your database, you can query them however you like with your existing tools and systems. See `overseer.schema` for a reference of what Overseer stores.
+Since Overseer jobs are just entities in your database, you can query them however you like with your existing tools and systems. See `overseer.schema` for a reference of what Overseer stores.

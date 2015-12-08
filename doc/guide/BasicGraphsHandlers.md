@@ -1,6 +1,6 @@
 # Specifying job graphs and handlers
 
-Overseer uses ordinary Clojure data structures and functions to specify your tasks and the dependencies between them. There are two important concepts here - job graphs and job handlers. We'll first include the complete code to specify a job dependency graph and some handlers, and then walk through it.
+Overseer uses Clojure data structures and functions to specify your tasks and the dependencies between them. There are two important concepts here - job graphs and job handlers. We'll first include the complete code to specify a job dependency graph and some handlers, and then walk through it.
 
 ```clj
 
