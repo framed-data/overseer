@@ -18,4 +18,5 @@
                  [raven-clj "1.1.0"]
                  [io.framed/std "0.1.2"]]
   :aot [overseer.runner]
-  :plugins [[codox "0.8.13"]])
+  :plugins [[codox "0.8.13"]]
+  :codox {:output-dir "doc/api"})
