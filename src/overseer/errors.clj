@@ -29,13 +29,18 @@
         (fn [[k v]]
           (when (and (safe? k) (safe? v))
             [k v]))]
-    (->> (map sanitize data)
-         (filter identity)
-         (into {}))))
+    (when data
+      (->> (map sanitize data)
+           (filter identity)
+           (into {})))))
 
-(defn sanitized-ex-data [ex]
-  (when-let [exc-data (ex-data ex)]
-    (filter-serializable exc-data)))
+(defn- extract-ex-data
+  "Like clojure.core/ex-data, but also works on arbitrarily nested
+   java.util.concurrent.ExecutionException stack (threads can throw too)"
+  [ex]
+  (if (instance? ExecutionException ex)
+    (extract-ex-data (.getCause ex))
+    (ex-data ex)))
 
 (defn sentry-capture
   "Send an exception and an optional map of additional context
@@ -53,8 +58,7 @@
 (defn- ineligible-exception?
   "Was <ex> thrown by an ineligible job reservation?"
   [ex]
-  (and (instance? ExecutionException ex)
-       (= :ineligible (:overseer/error (ex-data (.getCause ex))))))
+  (= :ineligible (:overseer/error (extract-ex-data ex))))
 
 (defn reserve-exception-handler
   "Return nil in case of reservation failure, and re-throw
@@ -71,7 +75,7 @@
   "Construct a map of information about an exception, including
    user-supplied ex-data if present"
   [ex]
-  (let [exc-data (ex-data ex)
+  (let [exc-data (extract-ex-data ex)
         m {:overseer/status (or (:overseer/status exc-data) :failed)
            :overseer/failure {:reason :system/exception
                               :exception (class ex)
@@ -87,11 +91,13 @@
   (if-let [dsn (config/sentry-dsn config)]
     (fn [ex]
       (timbre/error ex)
-      (when-not (:overseer/suppress? (ex-data ex))
-        (let [extra (merge (select-keys job [:job/type :job/id])
-                           (or (sanitized-ex-data ex) {}))]
-          (sentry-capture dsn ex extra)))
-      (failure-info ex))
+      (let [exc-data (extract-ex-data ex)]
+        (when-not (:overseer/suppress? exc-data)
+          (let [extra (merge (select-keys job [:job/type :job/id])
+                             (or (filter-serializable exc-data) {}))]
+            (sentry-capture dsn ex extra)))
+        (failure-info ex)))
+
     (fn [ex]
       (timbre/error ex)
       (failure-info ex))))
