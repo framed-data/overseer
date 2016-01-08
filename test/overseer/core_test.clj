@@ -105,23 +105,23 @@
          :result1 [:start]
          :result2 [:start]
          :publish [:result1 :result2]}
-        jobs-by-type (core/job-assertions-by-type (keys graph) {})
+        jobs-by-type (core/job-txns-by-type (keys graph) {})
         ->job-tempid (fn [job-type] (:db/id (get jobs-by-type job-type)))
-        edge-assertions (core/job-dep-edges graph jobs-by-type)]
+        edge-txns (core/job-dep-edges graph jobs-by-type)]
       (is (= (->job-tempid :start)
-             (:job/dep (nth edge-assertions 0)))
+             (:job/dep (nth edge-txns 0)))
           ":result1 depends on :start")
 
       (is (= (->job-tempid :start)
-             (:job/dep (nth edge-assertions 1)))
+             (:job/dep (nth edge-txns 1)))
           ":result2 depends on :start")
 
       (is (= (->job-tempid :result1)
-             (:job/dep (nth edge-assertions 2)))
+             (:job/dep (nth edge-txns 2)))
           ":publish depends on :result1")
 
       (is (= (->job-tempid :result2)
-             (:job/dep (nth edge-assertions 3)))
+             (:job/dep (nth edge-txns 3)))
           ":publish depends on :result2")))
 
 (deftest test-status-txn

@@ -14,30 +14,30 @@ Given a sample graph like:
    :finish [:result1 :result2]})
 ```
 
-You can insert the entire graph at once, i.e. create unstarted job instances for `:start`, `:result1`, `:result2`, and `:finish`, and have them be executed by any available workers as their dependencies become satisfied. `overseer.api/->graph-txn` builds the sequence of transactions for a graph.
+You can insert the entire graph at once, i.e. create unstarted job instances for `:start`, `:result1`, `:result2`, and `:finish`, and have them be executed by any available workers as their dependencies become satisfied. `overseer.api/graph-txns` builds the sequence of transactions for a graph.
 
 ```
 myapp.core=> (require '[overseer.api :as overseer])
 myapp.core=> (require '[myapp.core :as myapp])
-myapp.core=> (def txns (overseer/->graph-txn myapp/job-graph))
+myapp.core=> (def txns (overseer/graph-txns myapp/job-graph))
 myapp.core=> @(d/transact (d/connect uri) txns)
 ```
 
-You can also specify arguments to a job via attributes that are attached to the entity. As such, you'll need to make sure that any attributes already exist in your Datomic schema. `->graph-txn` optionally accepts a second argument which is a map of attributes for your job:
+You can also specify arguments to a job, which will be attached as attributes of the entity. As such, you'll need to make sure that any attributes already exist in your Datomic schema. `graph-txns` optionally accepts a second argument which is a map of attributes for your job:
 
 
 ```clj
-myapp.core=> (def txns (overseer/->graph-txn myapp/job-graph {:organization-id 123 :user-id 456}))
+myapp.core=> (def txns (overseer/graph-txns myapp/job-graph {:organization-id 123 :user-id 456}))
 myapp.core=> @(d/transact (d/connect uri) txns)
 ```
 
 Note that these arguments will be attached to *every* job that gets created; it's assumed a job graph will be operating for a single shared context such as a user, organization, or other meaningful value in your domain.
 
-You can also construct a transaction to insert a single job. `overseer.api/job-assertion` accepts a keyword job type, and optionally arguments to attach to the job entity.
+You can also construct a transaction to insert a single job. `overseer.api/job-txn` accepts a keyword job type, and optionally arguments to attach to the job entity.
 
 ```clj
 (def txn
-  (overseer/job-assertion :my-job-type {:organization-id 123 :user-id 456}))
+  (overseer.api/job-txn :my-job-type {:organization-id 123 :user-id 456}))
 
 @(d/transact conn [txn])
 ```

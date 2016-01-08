@@ -21,24 +21,24 @@
   worker/start!)
 
 (def
-  ^{:doc "Construct a single unstarted job assertion, given a type and optional
-  arguments (serializable via EDN)
+  ^{:doc "Construct a single unstarted job txn, given a type and optional
+  arguments, asserted as attributes on the job entities
   Ex:
-    (let [tx1 (job-assertion :my-job-type-1)
-          tx2 (job-assertion :my-job-type-2 {:organization-id 123})]
+    (let [tx1 (job-txn :my-job-type-1)
+          tx2 (job-txn :my-job-type-2 {:organization-id 123})]
       @(d/transact conn [tx1 tx2]))"
     :arglists '([job-type] [job-type args])}
-  job-assertion
-  core/job-assertion)
+  job-txn
+  core/job-txn)
 
-(defn ->graph-txn
+(defn graph-txns
   "Entry point to assert a sequence of jobs into the system.
    Given a job graph, and optional additional argument data,
    return a sequence of Datomic transactions that can be
    asserted directly
 
    Ex:
-     (def txns (->graph-txn
+     (def txns (graph-txns
                  {:start []
                   :process-1a [:start]
                   :process-1b [:process-1a]
@@ -47,13 +47,13 @@
                  {:organization-id 123}))
      @(d/transact conn txns)"
   ([graph]
-   (->graph-txn graph {}))
+   (graph-txns graph {}))
   ([graph tx]
    (let [missing-deps (core/missing-dependencies graph)]
       (assert (empty? missing-deps)
               (str "Invalid graph; missing dependencies " (string/join ", " missing-deps)))
      (let [job-types (keys graph)
-           jobs-by-type (core/job-assertions-by-type job-types tx)
+           jobs-by-type (core/job-txns-by-type job-types tx)
            dep-edges (core/job-dep-edges graph jobs-by-type)]
        (concat (vals jobs-by-type) dep-edges)))))
 
