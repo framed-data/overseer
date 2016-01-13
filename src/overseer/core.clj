@@ -16,11 +16,9 @@
   (->> (filter (fn [[k _]] (not (contains? handlers k))) graph)
        (map first)))
 
-(defn job-assertion
-  "Construct a single job assertion, given a type and optional
-   user-provided txn data"
+(defn job-txn
   ([job-type]
-   (job-assertion job-type {}))
+   (job-txn job-type {}))
   ([job-type tx]
    (merge
      {:db/id (d/tempid :db.part/user)
@@ -29,16 +27,16 @@
       :job/type job-type}
      tx)))
 
-(defn job-assertions-by-type
-  "Construct a map of {:job-type => assertion} with optional
-   txn data merged onto each assertion"
+(defn job-txns-by-type
+  "Construct a map of {:job-type => txn} with optional
+   txn data merged onto each txn"
   [job-types tx]
   (zipmap
     (map identity job-types)
-    (map #(job-assertion % tx) job-types)))
+    (map #(job-txn % tx) job-types)))
 
 (defn job-dep-edges
-  "Construct a list of assertions to of the graph edges, i.e marking
+  "Construct a list of txns to of the graph edges, i.e marking
    job dependencies"
   [graph jobs-by-type]
   (for [[job deps] graph
