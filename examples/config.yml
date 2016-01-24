@@ -5,6 +5,10 @@
 datomic:
   uri: datomic:free://localhost:4334/overseer
 
+# Optional: How to sleep (in ms) between ready job detector runs
+# (ready jobs are periodically cached)
+detector-sleep-time: 2000
+
 # Optional: How long to sleep (in ms) if job queue is empty
 # Default: 10000
 sleep-time: 10000

@@ -8,6 +8,11 @@
     (assert uri "Datomic URI is required")
     uri))
 
+(defn detector-sleep-time
+  "How long to sleep between ready job detector runs (ms)"
+  [config]
+  (get config :detector-sleep-time 2000))
+
 (defn sleep-time
   "How long to sleep in ms if the job queue is empty"
   [config]

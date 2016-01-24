@@ -12,10 +12,6 @@
               [heartbeat :as heartbeat]
               [status :as status])))
 
-(def ^:private detector-sleep-time
-  "Pause time between ready job detector runs (ms)"
-  2000)
-
 (defn- ready-job-entities
   "Return the set of job entities that are ready to execute,
    filtering to those defined in job-handlers (this allows different
@@ -37,7 +33,7 @@
         detector-fut
         (future-loop
           (reset! ready-jobs (ready-job-entities (d/db conn) job-handlers))
-          (Thread/sleep detector-sleep-time))
+          (Thread/sleep (config/detector-sleep-time config)))
 
         executor-fut
         (exc/start-executor config conn job-handlers ready-jobs current-job)
