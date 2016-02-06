@@ -65,12 +65,19 @@
 (defn- reset-job-txns
   "Given a job entity that has failed heartbeat, return txns to
    reset its status to unstarted and retract its heartbeat (to prevent
-   erroneous reset by another monitor)
-
-   NOTE: cas can throw, monitor responsible for handling properly"
+   erroneous reset by another monitor)"
   [{ent-id :db/id heartbeat :job/heartbeat :as job}]
   [[:db/retract ent-id :job/heartbeat heartbeat]
    [:db.fn/cas ent-id :job/status :started :unstarted]])
+
+(defn cas-failed?
+  "Return whether an exception is specifically a Datomic check-and-set failure"
+  [ex]
+  (= :db.error/cas-failed
+     (->> ex
+          Throwable->map
+          :data
+          :db/error)))
 
 (defn start-monitor
   "Start a process that will continually check for jobs failing
@@ -87,6 +94,10 @@
           (timbre/warn (str "Resetting: " (string/join ", " (map :job/id jobs))))
           @(d/transact conn dead-job-txns))
         (Thread/sleep (+ (config/heartbeat-sleep-time config) (sleep-stagger))))
+      (catch java.util.concurrent.ExecutionException ex
+        (if (cas-failed? ex)
+          (timbre/info "Heartbeat monitor CAS failed; ignoring.")
+          (throw ex)))
       (catch Exception ex
         (timbre/error ex)
         (System/exit 1))))) ; Conservative, avoid running in degraded state
