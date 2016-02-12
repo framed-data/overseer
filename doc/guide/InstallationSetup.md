@@ -2,7 +2,7 @@
 
 Overseer is used as a library within your existing Clojure application. First you'll need to add it as a dependency in your `project.clj` file:
 
-`[io.framed/overseer "0.7.2"]`
+[![Clojars Project](http://clojars.org/io.framed/overseer/latest-version.svg)](http://clojars.org/io.framed/overseer)
 
 Overseer stores its operational data in [Datomic](http://www.datomic.com/), so you'll need to include that as a dependency as well. Here's an example `project.clj` file with all dependencies:
 
@@ -12,10 +12,10 @@ Overseer stores its operational data in [Datomic](http://www.datomic.com/), so y
   :main myapp.core
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [com.datomic/datomic-free "0.9.5130"]
-                 [io.framed/overseer "0.7.2"]])
+                 [io.framed/overseer "<VERSION>"]])
 ```
 
-By default, Overseer is configured to use the free distribution of Datomic, but Datomic Pro is supported as well (and highly recommended); just substitute your own Datomic Pro dependency instead of `datomic-free` as appropriate, and modify the Overseer dependency shown here with `[io.framed/overseer "0.7.2" :exclusions [com.datomic/datomic-free]]`. We'll be specifying a namespace to act as a main entry point and start the system later, so choose your main namespace and make sure its AOT-compiled.
+By default, Overseer is configured to use the free distribution of Datomic, but Datomic Pro is supported as well (and highly recommended); just substitute your own Datomic Pro dependency instead of `datomic-free` as appropriate, and modify the Overseer dependency shown here with `[io.framed/overseer "<VERSION>" :exclusions [com.datomic/datomic-free]]`. We'll be specifying a namespace to act as a main entry point and start the system later, so choose your main namespace and make sure its AOT-compiled.
 
 Next up we'll set up Datomic and install Overseer's schema, so fire up `lein repl`. If you already have a Datomic database set up and running, you can substitute your URI here and Overseer will integrate with your existing DB, so you can skip this first step. Otherwise you'll need to make sure Datomic is running and create a database:
 
