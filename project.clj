@@ -16,7 +16,8 @@
                  [com.datomic/datomic-free "0.9.5130" :exclusions [joda-time]]
                  [clj-http "1.1.2"]
                  [raven-clj "1.1.0"]
-                 [io.framed/std "0.1.2"]]
+                 [io.framed/std "0.1.2"]
+                 [aysylu/loom "1.0.0"]]
   :aot [overseer.runner]
   :plugins [[codox "0.8.13"]]
   :codox {:output-dir "doc/api"})
