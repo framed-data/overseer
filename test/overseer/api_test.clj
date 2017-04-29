@@ -1,8 +1,8 @@
 (ns overseer.api-test
  (:require [clojure.test :refer :all]
-           [datomic.api :as d]
            [taoensso.timbre :as timbre]
            (overseer
+             [core :as core]
              [api :as api]
              [test-utils :as test-utils]
              [executor :as exc])))
@@ -79,15 +79,15 @@
 (deftest test-fault
   (timbre/with-log-level :report
     (let [config {}
-          conn (test-utils/connect)
+          store (test-utils/store)
           job-ran? (atom false)
           job-handlers {:bar (fn [job]
                                (reset! job-ran? true)
                                (api/fault "transient problem occurred"))}
-          job (test-utils/->transact-job conn {:job/type :bar})
-          job-ent-id (:db/id job)
-          status-txns (exc/run-job config conn job-handlers job)
-          {:keys [db-before db-after]} @(d/transact conn status-txns)]
-      (is (= :unstarted (:job/status (d/entity db-before job-ent-id))))
+          {job-id :job/id :as job} (test-utils/job {:job/type :bar})]
+      (core/transact-graph store (core/simple-graph job))
+      (is (= :unstarted (:job/status (core/job-info store job-id))))
+      (core/reserve-job store job-id)
+      (exc/run-job config store job-handlers job)
       (is @job-ran?)
-      (is (= :unstarted (:job/status (d/entity db-after job-ent-id)))))))
+      (is (= :unstarted (:job/status (core/job-info store job-id)))))))

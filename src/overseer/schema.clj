@@ -49,33 +49,9 @@
      :db/doc "Unix timestamp of periodic heartbeat from node working on this job"
      :db.install/_attribute :db.part/db}])
 
-(def ^:no-doc reserve-job
-  "Datomic database function to atomically reserve a job (mark as started
-   and include initial heartbeat)
-   Either reserves the given job id, or throws."
-  {:db/id (d/tempid :db.part/user)
-   :db/ident :reserve-job
-   :db/fn (datomic.function/construct
-            {:lang "clojure"
-             :params '[db job-id]
-             :code
-             '(let [result (datomic.api/q '[:find ?s
-                                            :in $data ?job-id
-                                            :where [$data ?e :job/id ?job-id]
-                                                   [$data ?e :job/status ?s]]
-                             db
-                             job-id)
-                    status (ffirst result)
-                    heartbeat (quot (System/currentTimeMillis) 1000)]
-                (if-not (#{:finished :aborted :failed} status)
-                  [[:db/add [:job/id job-id] :job/status :started]
-                   [:db/add [:job/id job-id] :job/heartbeat heartbeat]]
-                  (throw (ex-info (format "Job %s: status %s not eligible for start." job-id status)
-                                  {:overseer/error :ineligible}))))})})
-
 (defn install
   "Install Overseer's schema and DB functions into Datomic.
    Should only be necessary a single time. Returns :ok on success"
   [conn]
-  @(d/transact conn (conj schema-txn reserve-job))
+  @(d/transact conn (conj schema-txn))
   :ok)

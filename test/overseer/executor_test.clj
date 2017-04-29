@@ -1,45 +1,36 @@
 (ns overseer.executor-test
   (:require [clojure.test :refer :all]
-            [datomic.api :as d]
             [taoensso.timbre :as timbre]
             (overseer
+              [core :as overseer]
               [test-utils :as test-utils]
               [executor :as exc])))
-
-(deftest test-reserve-job
- (timbre/with-log-level :report
-   (let [conn (test-utils/connect)
-         exception-handler (fn [_] :failed)
-         job (test-utils/->transact-job conn)
-         job-ent-id (:db/id job)]
-     (is (= job
-            (exc/reserve-job exception-handler conn job)))
-     (is (= :started
-            (:job/status (d/entity (d/db conn) job-ent-id)))))))
 
 (deftest test-run-job-success
   (timbre/with-log-level :report
     (let [config {}
-          conn (test-utils/connect)
+          store (test-utils/store)
           job-handlers {:foo (fn [job] :ok)}
-          job (test-utils/->transact-job conn {:job/type :foo})
-          job-ent-id (:db/id job)
-          status-txns (exc/run-job config conn job-handlers job)
-          {:keys [db-before db-after]} @(d/transact conn status-txns)]
-      (is (= :unstarted (:job/status (d/entity db-before job-ent-id))))
-      (is (= :finished (:job/status (d/entity db-after job-ent-id)))))))
+
+          {job-id :job/id :as job} (test-utils/job {:job/type :foo})]
+      (overseer/transact-graph store (overseer/simple-graph job))
+      (is (= :unstarted (:job/status (overseer/job-info store job-id))))
+      (overseer/reserve-job store job-id)
+      (exc/run-job config store job-handlers job)
+      (is (= :finished (:job/status (overseer/job-info store job-id)))))))
 
 (deftest test-run-job-failure
   (timbre/with-log-level :report
     (let [config {}
-          conn (test-utils/connect)
+          store (test-utils/store)
           job-handlers {:bar (fn [sys job] (throw (Exception. "uh oh")))}
-          job (test-utils/->transact-job conn {:job/type :bar})
-          job-ent-id (:db/id job)
-          status-txns (exc/run-job config conn job-handlers job)
-          {:keys [db-before db-after]} @(d/transact conn status-txns)]
-      (is (= :unstarted (:job/status (d/entity db-before job-ent-id))))
-      (is (= :failed (:job/status (d/entity db-after job-ent-id)))))))
+
+          {job-id :job/id :as job} (test-utils/job {:job/type :bar})]
+      (overseer/transact-graph store (overseer/simple-graph job))
+      (is (= :unstarted (:job/status (overseer/job-info store job-id))))
+      (overseer/reserve-job store job-id)
+      (exc/run-job config store job-handlers job)
+      (is (= :failed (:job/status (overseer/job-info store job-id)))))))
 
 (deftest test-invoke-handler
   (timbre/with-log-level :report
