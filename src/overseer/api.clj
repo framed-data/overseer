@@ -2,12 +2,12 @@
   "User-facing core API"
   (:require [clojure.set :as set]
             [clojure.string :as string]
-            [datomic.api :as d]
             (overseer
               [config :as config]
               [core :as core]
               [executor :as exc]
-              [worker :as worker])))
+              [worker :as worker])
+            [loom.graph :as loom]))
 
 (def default-config
   "Map of default configuration (connects to local Datomic)"
@@ -20,46 +20,38 @@
   start
   worker/start!)
 
-(def
-  ^{:doc "Construct a single unstarted job txn, given a type and optional
-  arguments, asserted as attributes on the job entities
+(defn job-graph
+  "Given a graph of job type keywords, and an optional map of
+  additional job data, return a graph of job maps that can be
+  transacted by a store.
+
+  This assumes you are only generating one job per type.
+
+  The input graph is specified in Loom adjacency list format (of keywords),
+  and the output is a Loom graph of job maps.
+
   Ex:
-    (let [tx1 (job-txn :my-job-type-1)
-          tx2 (job-txn :my-job-type-2 {:organization-id 123})]
-      @(d/transact conn [tx1 tx2]))"
-    :arglists '([job-type] [job-type args])}
-  job-txn
-  core/job-txn)
-
-(defn graph-txns
-  "Entry point to assert a sequence of jobs into the system.
-   Given a job graph, and optional additional argument data,
-   return a sequence of Datomic transactions that can be
-   asserted directly
-
-   Ex:
-     (def txns (graph-txns
-                 {:start []
-                  :process-1a [:start]
-                  :process-1b [:process-1a]
-                  :process-2 [:start]
-                  :finish [:process-1b :process-2]}
-                 {:organization-id 123}))
-     @(d/transact conn txns)"
+    (def graph (job-graph
+                {:start []
+                 :process-1a [:start]
+                 :process-1b [:process-1a]
+                 :process-2 [:start]
+                 :finish [:process-1b :process-2]}
+                {:org/id 123}))
+    ;; => Graph<Job> equivalent to:
+    ;;    {{:job/id 1 :job/type :start :org/id 123} []
+           {:job/id 2 :job/type :process-1a :org/id 123} [{:job/id 1 ...}]
+           {:job/id 3 :job/type :process-1b :org/id 123} [{:job/id 2 ...}]
+           ...}
+    (core/transact-graph store txns graph)"
   ([graph]
-   (graph-txns graph {}))
+   (job-graph graph {}))
   ([graph tx]
-   (let [missing-deps (core/missing-dependencies graph)]
-      (assert (empty? missing-deps)
-              (str "Invalid graph; missing dependencies " (string/join ", " missing-deps)))
-     (let [job-types (keys graph)
-           jobs-by-type (core/job-txns-by-type job-types tx)
-           dep-edges (core/job-dep-edges graph jobs-by-type)]
-       (concat (vals jobs-by-type) dep-edges)))))
+   (core/job-graph graph tx)))
 
 (defn validate-graph-handlers
-  "Assert that a given graph only references handlers defined
-   in the `handlers` map"
+  "Assert that a given job-type keyword graph (see `job-graph`)
+   only references handlers defined in the given `handlers` map."
   [handlers graph]
   (let [missing-handlers (core/missing-handlers handlers graph)]
     (assert (empty? missing-handlers)
