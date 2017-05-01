@@ -79,15 +79,18 @@
 (deftest test-transitive-dependents
   (let [conn (test-utils/connect)
         graph [{:db/id (d/tempid :db.part/user -1001)
-                :job/id "12345"}
+                :job/id "-1001"}
                {:db/id (d/tempid :db.part/user -1002)
+                :job/id "-1002"
                 :job/dep (d/tempid :db.part/user -1001)}
                {:db/id (d/tempid :db.part/user -1003)
-                :job/dep (d/tempid :db.part/user -1001)}
+                :job/dep (d/tempid :db.part/user -1001)
+                :job/id "-1003"}
                {:db/id (d/tempid :db.part/user -1004)
-                :job/dep (d/tempid :db.part/user -1002)}
+                :job/dep (d/tempid :db.part/user -1002)
+                :job/id "-1004"}
                {:db/id (d/tempid :db.part/user -1005)
-                :job/id "67890"}]
+                :job/id "-1005"}]
         {:keys [tempids db-after] :as txn} @(d/transact conn graph)
         resolve-tempid (fn [tempid]
                          (->> (d/tempid :db.part/user tempid)
