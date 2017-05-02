@@ -48,35 +48,22 @@
   {:pre [job-id]}
   (d/pull db '[:*] [:job/id job-id]))
 
-(defn ent-dependents
-  "Find all jobs entities that depend on ent"
-  [db ent]
-  (->> (d/q '[:find ?dep
-              :in $ ?ent
-              :where [?dep :job/dep ?ent]]
-            db
-            ent)
-       (map first)
-       (set)))
-
 (defn transitive-dependents [db job-id]
   "Returns a set of job IDs that transitively depend upon given job ID
    Basically recursive breadth-first graph traversal of the job graph."
-  (let [job-ent-id (:db/id (->job-entity db job-id))]
-    (assert job-ent-id)
-    (loop [all-dependents #{}
-           visited #{}
-           to-visit #{job-ent-id}]
-      (if (empty? to-visit)
-        (set (map #(:job/id (d/entity db %)) all-dependents))
-        (let [ent (first to-visit)
-              dependents (ent-dependents db ent)
-              all-dependents' (set/union all-dependents dependents)
-              visited' (conj visited ent)
-              to-visit' (set/difference
-                          (set/union to-visit dependents)
-                          visited')]
-          (recur all-dependents' visited' to-visit'))))))
+  (let [rules '[[(dependent? ?j1 ?j0)
+                 [?j1 :job/dep ?j0]]
+                [(dependent? ?j2 ?j0)
+                 (dependent? ?j2 ?j1)
+                 (dependent? ?j1 ?j0)]]]
+    (set (d/q '[:find [?dep-jid ...]
+                :in $ % ?jid
+                :where [?j0 :job/id ?jid]
+                       [dependent? ?j1 ?j0]
+                       [?j1 :job/id ?dep-jid]]
+              db
+              rules
+              job-id))))
 
 (defn status-txn
   "Construct a single job update status txn"
