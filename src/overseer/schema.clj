@@ -19,6 +19,13 @@
      :db.install/_attribute :db.part/db}
 
     {:db/id (d/tempid :db.part/db)
+     :db/ident :job/args
+     :db/valueType :db.type/string
+     :db/cardinality :db.cardinality/one
+     :db/doc "The arguments passed to a job (serialized as EDN)"
+     :db.install/_attribute :db.part/db}
+
+    {:db/id (d/tempid :db.part/db)
      :db/ident :job/status
      :db/valueType :db.type/keyword
      :db/cardinality :db.cardinality/one
