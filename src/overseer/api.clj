@@ -81,9 +81,9 @@
 
 (defn abort
   "Control-flow helper to immediately mark a job as aborted from within a handler
-   and abort all of its dependents (halts handler execution)
-   Fails loudly by default - will log an error and and send to Sentry.
-   See also `abort-silent`"
+  and abort all of its dependents (halts handler execution)
+  Fails loudly by default - will log an error and and send to Sentry.
+  See also `abort-silent`"
   [msg]
   (throw (ex-info msg {:overseer/status :aborted})))
 
@@ -95,66 +95,66 @@
 
 (defn fault
   "Signal that a transient fault has occurred and the worker should
-   release and unstart the job so that it can be retried at a later time."
+  release and unstart the job so that it can be retried at a later time."
   [msg]
   (throw (ex-info msg {:overseer/status :unstarted
                        :overseer/suppress? true})))
 
 (defn harness
   "A mechanism to 'wrap' job handlers, giving one the ability
-   to provide additional context, inject dependencies, or otherwise
-   alter the flow of execution. Conceptually, harnessing is similar to
-   the idea behind Ring middleware.
+  to provide additional context, inject dependencies, or otherwise
+  alter the flow of execution. Conceptually, harnessing is similar to
+  the idea behind Ring middleware.
 
-   Accepts a standard job handler (map or function) and a
-   `wrapper` function which will be called with the *function* specified
-   in your handler and is expected to return a new *function* with the
-   same signature. If your handler is a map, it will be transparently
-   constructed/deconstructed; harnesses work solely in terms of functions.
+  Accepts a standard job handler (map or function) and a
+  `wrapper` function which will be called with the *function* specified
+  in your handler and is expected to return a new *function* with the
+  same signature. If your handler is a map, it will be transparently
+  constructed/deconstructed; harnesses work solely in terms of functions.
 
-   For example, a harness that simply implements the default behavior for
-   a processor is:
+  For example, a harness that simply implements the default behavior for
+  a processor is:
 
-     (defn my-harness [f]
-       (fn [job]
-         (f job)))
+    (defn my-harness [f]
+      (fn [job]
+        (f job)))
 
-   A more substantive harness can be used to provide jobs with additional
-   context or inject dependencies such as a database connection:
+  A more substantive harness can be used to provide jobs with additional
+  context or inject dependencies such as a database connection:
 
-     (defn my-harness [f]
-       (fn [job]
-         (let [modified-job (assoc job :conn (d/connect my-datomic-uri))]
-           (f modified-job))))
+    (defn my-harness [f]
+      (fn [job]
+        (let [modified-job (assoc job :conn (d/connect my-datomic-uri))]
+          (f modified-job))))
 
-   Or add logging:
+  Or add logging:
 
-     (defn logging-harness [f]
-       (fn [job]
-         (println \"START execution of \" (:job/id job))
-         (f job)
-         (println \"FINISH execution of \" (:job/id job))))
+    (defn logging-harness [f]
+      (fn [job]
+        (println \"START execution of \" (:job/id job))
+        (f job)
+        (println \"FINISH execution of \" (:job/id job))))
 
-   After defining a harness, in the job-handlers map one specifies
+  After defining a harness, in the job-handlers map one specifies
 
-     {:my-job (overseer.api/harness my-job/run my-harness)}
+    {:my-job (overseer.api/harness my-job/run my-harness)}
 
-   Following the previous example, within your handler you now have
-   additional context available:
+  Following the previous example, within your handler you now have
+  additional context available:
 
-     (defn run [{:keys [conn] :as job}] ...)
+    (defn run [{:keys [conn] :as job}] ...)
 
-   If your handler is a map, you can optionally specify a key to harness a
-   specific stage; the default is :process. For example, to harness
-   a post-processor:
+  If your handler is a map, you can optionally specify a key to harness a
+  specific stage; the default is :process. For example, to harness
+  a post-processor:
 
-     {:my-job (overseer.api/harness my-job/run :post-process my-harness)}
+    {:my-job (overseer.api/harness my-job/run :post-process my-harness)}
 
-   If you attempt to harness a missing stage for a given job, the wrapper will
-   be invoked with a properly-formed identity function, meaning you can write
-   your harnesses in a single consistent fashion, and, for example, universally
-   harness a post-processor for a set of handlers that may or may not define
-   their own post-processor."
+  If you attempt to harness a missing stage for a given job, the wrapper will
+  be invoked with a properly-formed identity function, meaning you can write
+  your harnesses in a single consistent fashion, and, for example, universally
+  harness a post-processor for a set of handlers that may or may not define
+  their own post-processor."
   ([handler wrapper]
    (harness handler :process wrapper))
   ([handler k wrapper]
