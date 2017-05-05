@@ -57,6 +57,22 @@
           graph (loom.graph/digraph {j0 []})]
       (is (not (core/valid-graph? graph))))))
 
+(defn uuid [s]
+  (try (java.util.UUID/fromString s)
+       (catch IllegalArgumentException ex nil)))
+
+(deftest test-job-graph
+  (let [job-type-graph
+        {:start []
+         :process [:start]
+         :finish [:process]}
+        tx {:org/id 123}
+        graph (core/job-graph job-type-graph tx)
+        jobs (loom.graph/nodes graph)]
+    (is (every? uuid (map :job/id jobs)))
+    (is (every? (partial = :unstarted) (map :job/status jobs)))
+    (is (every? (partial = 123) (map #(get-in % [:job/args :org/id]) jobs)))))
+
 (deftest test-missing-handlers
   (let [handlers {:foo (fn [_] nil)
                   :bar (fn [_] nil)}

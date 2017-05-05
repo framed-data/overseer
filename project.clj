@@ -19,7 +19,9 @@
                  [io.framed/std "0.2.5"]
                  [aysylu/loom "1.0.0"]
                  [org.clojure/java.jdbc "0.7.0-alpha3"]
+                 [honeysql "0.8.2"]
                  [com.h2database/h2 "1.4.195"]
-                 [com.velisco/herbert "0.7.0"]]
+                 [com.velisco/herbert "0.7.0"]
+                 [clj-time "0.12.2"]]
   :plugins [[codox "0.8.13"]]
   :codox {:output-dir "doc/api"})

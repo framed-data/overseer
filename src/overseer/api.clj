@@ -21,6 +21,7 @@
               [executor :as exc]
               [worker :as worker])
             [overseer.store.datomic :as store.datomic]
+            [overseer.store.jdbc :as store.jdbc]
             [loom.graph :as loom]))
 
 (defn store
@@ -28,7 +29,9 @@
   configuration in `config` map"
   [config]
   (case (config/store-type config)
-    :datomic (store.datomic/store (:uri (config/datomic-config config)))))
+    :datomic (store.datomic/store (:uri (config/datomic-config config)))
+    :mysql (store.jdbc/store (config/jdbc-config config))
+    :h2 (store.jdbc/store (config/jdbc-config config))))
 
 (defn start
   "Start the system inline given a config map, a Store implementation (see `store`)
@@ -72,6 +75,12 @@
   (let [missing-handlers (core/missing-handlers handlers job-type-graph)]
     (assert (empty? missing-handlers)
             (str "Invalid graph; missing handlers " (string/join ", " missing-handlers)))))
+
+(defn install
+  "Install store configuration (create system tables, etc). *Not* guaranteed
+  to be idempotent. Returns :ok on success"
+  [store]
+  (core/install store))
 
 (defn transact-graph
   "Given a Graph, atomically transact all of its jobs/dependencies into
