@@ -1,69 +1,83 @@
 (ns overseer.api
-  "User-facing core API"
+  "User-facing core API
+
+  Jobs are defined as maps with the following attributes:
+    :job/id - Required String uniquely identifying a job
+    :job/type - Keyword type name of this job
+    :job/status - Keyword, one of #{:unstarted :started :finished :failed :aborted}
+    :job/args - Optional arguments to the job (must be serializable as EDN)
+
+  Jobs that have been run (or attempted) by the system may also have the following attributes:
+    :job/heartbeat - Integer UNIX timestamp of the last time a worker processing
+                     this job marked itself alive
+    :job/failure - Map containing information about the failure of a job
+
+  Graphs are defined as Loom digraphs where every node is a valid Job."
   (:require [clojure.set :as set]
             [clojure.string :as string]
-            [datomic.api :as d]
             (overseer
               [config :as config]
               [core :as core]
               [executor :as exc]
-              [worker :as worker])))
+              [worker :as worker])
+            [overseer.store.datomic :as store.datomic]
+            [loom.graph :as loom]))
 
-(def default-config
-  "Map of default configuration (connects to local Datomic)"
-  config/default-config)
+(defn store
+  "Return a Store implementation based on the store type and type-specific
+  configuration in `config` map"
+  [config]
+  (case (config/store-type config)
+    :datomic (store.datomic/store (:uri (config/datomic-config config)))))
 
-(def
-  ^{:doc "Start the system as a library, given a map of
-  {job-type job-handler}"
-    :arglists '([config job-handlers])}
-  start
-  worker/start!)
+(defn start
+  "Start the system inline given a config map, a Store implementation (see `store`)
+  and a job-handler map of {job-type job-handler}"
+  [config store job-handlers]
+  (worker/start! config store job-handlers))
 
-(def
-  ^{:doc "Construct a single unstarted job txn, given a type and optional
-  arguments, asserted as attributes on the job entities
+(defn job-graph
+  "Given a map in Loom adjacency list format specifying dependencies between keyword job types,
+  and an optional map of additional job data, return a Loom digraph of Job maps that can be
+  transacted by a store. This assumes you are only generating one job per type.
+
   Ex:
-    (let [tx1 (job-txn :my-job-type-1)
-          tx2 (job-txn :my-job-type-2 {:organization-id 123})]
-      @(d/transact conn [tx1 tx2]))"
-    :arglists '([job-type] [job-type args])}
-  job-txn
-  core/job-txn)
+    (def graph (job-graph
+                {:start []
+                 :process-1a [:start]
+                 :process-1b [:process-1a]
+                 :process-2 [:start]
+                 :finish [:process-1b :process-2]}
+                {:org/id 123}))
+    ; => Graph<Job>, ex:
+    ;    {{:job/id 1 :job/type :start :org/id 123} []
+          {:job/id 2 :job/type :process-1a :org/id 123} [{:job/id 1 ...}]
+          {:job/id 3 :job/type :process-1b :org/id 123} [{:job/id 2 ...}]
+          ...}
+    (core/transact-graph store txns graph)"
+  ([job-type-graph]
+   (job-graph job-type-graph {}))
+  ([job-type-graph tx]
+   (core/job-graph job-type-graph tx)))
 
-(defn graph-txns
-  "Entry point to assert a sequence of jobs into the system.
-   Given a job graph, and optional additional argument data,
-   return a sequence of Datomic transactions that can be
-   asserted directly
-
-   Ex:
-     (def txns (graph-txns
-                 {:start []
-                  :process-1a [:start]
-                  :process-1b [:process-1a]
-                  :process-2 [:start]
-                  :finish [:process-1b :process-2]}
-                 {:organization-id 123}))
-     @(d/transact conn txns)"
-  ([graph]
-   (graph-txns graph {}))
-  ([graph tx]
-   (let [missing-deps (core/missing-dependencies graph)]
-      (assert (empty? missing-deps)
-              (str "Invalid graph; missing dependencies " (string/join ", " missing-deps)))
-     (let [job-types (keys graph)
-           jobs-by-type (core/job-txns-by-type job-types tx)
-           dep-edges (core/job-dep-edges graph jobs-by-type)]
-       (concat (vals jobs-by-type) dep-edges)))))
+(defn simple-graph
+  "Construct a Graph from Job(s) that have no dependencies between them"
+  [& jobs]
+  (apply loom.graph/add-nodes (loom.graph/digraph) jobs))
 
 (defn validate-graph-handlers
-  "Assert that a given graph only references handlers defined
-   in the `handlers` map"
-  [handlers graph]
-  (let [missing-handlers (core/missing-handlers handlers graph)]
+  "Assert that a given job-type keyword graph (see `job-graph`)
+  only references handlers defined in the given `handlers` map."
+  [handlers job-type-graph]
+  (let [missing-handlers (core/missing-handlers handlers job-type-graph)]
     (assert (empty? missing-handlers)
             (str "Invalid graph; missing handlers " (string/join ", " missing-handlers)))))
+
+(defn transact-graph
+  "Given a Graph, atomically transact all of its jobs/dependencies into
+  the store. See `store`, `job-graph`."
+  [store graph]
+  (core/transact-graph store graph))
 
 (defn abort
   "Control-flow helper to immediately mark a job as aborted from within a handler

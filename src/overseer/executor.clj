@@ -2,26 +2,13 @@
   "An Executor is the process that actually grabs a job
    and performs its work; thus, it is the real substance
    of a Worker."
-  (:require [datomic.api :as d]
-            [taoensso.timbre :as timbre]
+  (:require [taoensso.timbre :as timbre]
             [framed.std.core :refer [future-loop]]
             (overseer
               [config :as config]
               [core :as core]
               [lottery :as lottery]
               [errors :as errors])))
-
-(defn reserve-job
-  "Attempt to reserve a job and return it"
-  [exception-handler conn job]
-  {:pre [job]}
-  (let [{:keys [job/id job/type]} job]
-    (errors/try-thunk exception-handler
-      (fn []
-        (timbre/info (format "Reserving job %s (%s)" id type))
-        @(d/transact conn [[:reserve-job id]])
-        (timbre/info "Reserved job" id)
-        job))))
 
 (defn invoke-handler
   "Invoke a job handler, which can either be an ordinary function
@@ -54,7 +41,7 @@
 
 (defn run-job
   "Run a single job and return the appropriate status update txns"
-  [config db job-handlers job]
+  [config store job-handlers job]
   (let [{job-id :job/id
          job-type :job/type} job
         handler (get job-handlers job-type)
@@ -64,17 +51,19 @@
         (errors/try-thunk (errors/->job-exception-handler config job)
                           (fn []
                             (invoke-handler handler job)
-                            {:overseer/status :finished}))
-        txns (core/update-job-status-txns db job-id exit-status-map)]
+                            {:overseer/status :finished}))]
     (timbre/info "Job" job-id "exited with status" status)
-    (when (= status :aborted)
-      (timbre/info "Found :aborted job; aborting all dependents of" job-id))
-    txns))
+    (case status
+      :finished (core/finish-job store job-id)
+      :failed (core/fail-job store job-id (:overseer/failure exit-status-map))
+      :aborted (core/abort-job store job-id)
+      :unstarted (core/reset-job store job-id))
+    exit-status-map))
 
 (defn start-executor
   "Construct an executor future that will perpetually run a scheduler over
    the `ready-jobs` atom to reserve and run jobs."
-  [config conn job-handlers ready-jobs current-job]
+  [config store job-handlers ready-jobs current-job]
   (future-loop
     (if (empty? @ready-jobs)
       (do (timbre/info "No handleable ready-jobs found. Waiting.")
@@ -82,8 +71,11 @@
       (do (timbre/info "Found" (count @ready-jobs) "handleable jobs.")
           (let [{job-id :job/id :as job} (lottery/run-lottery @ready-jobs)]
             (swap! ready-jobs disj job)
-            (when (reserve-job errors/reserve-exception-handler conn job)
-              (reset! current-job job)
-              (let [txns (run-job config (d/db conn) job-handlers job)]
-                @(d/transact conn txns))
-              (reset! current-job nil)))))))
+
+            (timbre/info (format "Reserving job %s (%s)" job-id (:job/type job)))
+            (if-let [reserved-job (core/reserve-job store job)]
+              (do (timbre/info "Reserved job" job-id)
+                  (reset! current-job job)
+                  (run-job config store job-handlers job)
+                  (reset! current-job nil))
+              (timbre/info "Failed to reserve; skipping job" job-id)))))))

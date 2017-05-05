@@ -9,6 +9,7 @@
  (:require [clojure.test :refer :all]
            [datomic.api :as d]
            (overseer
+             [api :as api]
              [core :as core]
              [test-utils :as test-utils])
            [overseer.store.datomic :as store]
@@ -16,9 +17,6 @@
            [clj-time.core :as tcore]
            [framed.std.time :as std.time]
            loom.graph))
-
-(defn simple-graph [& jobs]
-  (apply loom.graph/add-nodes (loom.graph/digraph) jobs))
 
 (def ->job test-utils/job)
 
@@ -31,16 +29,17 @@
     (let [job (test-utils/job
                 {:job/type :foo
                  :job/args {:email "foo@example.com"
-                            :age 30}})]
-      (core/transact-graph store (simple-graph job))
-      (is (= job
-             (-> (core/job-info store (:job/id job))
-                 (dissoc :db/id)))))))
+                            :age 30}})
+
+          _ (core/transact-graph store (api/simple-graph job))
+          job-after (core/job-info store (:job/id job))]
+      (doseq [[k v] job]
+        (is (= v (get job-after k)))))))
 
 (defn test-updating-jobs [store]
   (testing "reservation"
     (let [{job-id :job/id :as job} (test-utils/job {:job/type :foo})]
-      (core/transact-graph store (simple-graph job))
+      (core/transact-graph store (api/simple-graph job))
       (is (= :unstarted (:job/status (core/job-info store job-id))))
       (core/reserve-job store job-id)
       (is (= :started (:job/status (core/job-info store job-id))))
@@ -50,7 +49,7 @@
   (testing "heartbeating"
     (let [{job-id :job/id :as job} (test-utils/job {:job/type :foo})
           _ (do
-              (core/transact-graph store (simple-graph job))
+              (core/transact-graph store (api/simple-graph job))
               (core/reserve-job store job-id))
           job-before (core/job-info store job-id)
           _ (do
@@ -61,7 +60,7 @@
 
   (testing "resetting"
     (let [{job-id :job/id :as job} (test-utils/job {:job/type :foo})]
-      (core/transact-graph store (simple-graph job))
+      (core/transact-graph store (api/simple-graph job))
       (core/reserve-job store job-id)
       (is (= :started (:job/status (core/job-info store job-id))))
       (core/reset-job store job-id)
@@ -71,7 +70,7 @@
 
   (testing "finishing"
     (let [{job-id :job/id :as job} (test-utils/job {:job/type :foo})]
-      (core/transact-graph store (simple-graph job))
+      (core/transact-graph store (api/simple-graph job))
       (is (= :unstarted (:job/status (core/job-info store job-id))))
       (core/reserve-job store job-id)
       (is (= :started (:job/status (core/job-info store job-id))))
@@ -81,13 +80,13 @@
   (testing "failing"
     (let [{job-id :job/id :as job} (test-utils/job {:job/type :foo})
           failure {:thing :went-wrong}]
-      (core/transact-graph store (simple-graph job))
+      (core/transact-graph store (api/simple-graph job))
       (is (= :unstarted (:job/status (core/job-info store job-id))))
       (core/reserve-job store job-id)
       (is (= :started (:job/status (core/job-info store job-id))))
       (core/fail-job store job-id failure)
       (is (= :failed (:job/status (core/job-info store job-id))))
-      (is (= (pr-str failure) (:job/failure (core/job-info store job-id))))))
+      (is (= failure (:job/failure (core/job-info store job-id))))))
 
   (testing "aborting"
     (let [j0 (test-utils/job {:job/type :start})
@@ -110,15 +109,29 @@
           "It aborts all transitive dependents"))))
 
 (defn test-jobs-ready [store]
-  (let [j0 (->job)
-        j1 (->job)
+  (let [j0 (->job {:job/id "j0-id"})
+        j1 (->job {:job/id "j1-id"})
+        j2 (->job {:job/id "j2-id"})
         graph (loom.graph/digraph
                 {j0 []
-                 j1 [j0]})
+                 j1 [j0]
+                 j2 [j1]})
+
+        start-and-finish
+        (fn [job-id]
+          (core/reserve-job store job-id)
+          (core/finish-job store job-id))
+
         _ (core/transact-graph store graph)
         jobs-ready (core/jobs-ready store)]
-    (is (contains? jobs-ready (:job/id j0)))
-    (is (not (contains? jobs-ready (:job/id j1))))))
+    (is (contains? jobs-ready "j0-id"))
+    (is (not (contains? jobs-ready "j1-id")))
+    (is (not (contains? jobs-ready "j2-id")))
+    (start-and-finish "j0-id")
+    (is (contains? (core/jobs-ready store) "j1-id"))
+    (is (not (contains? jobs-ready "j2-id")))
+    (start-and-finish "j1-id")
+    (is (contains? (core/jobs-ready store) "j2-id"))))
 
 (defn test-jobs-dead [store]
   (timbre/with-log-level :report
@@ -131,11 +144,14 @@
           j3 (->job {:job/status :started
                      :job/heartbeat (unix<-millis-ago now 500)})
           thresh (unix<-millis-ago now 3000)]
-      (core/transact-graph store (simple-graph j1 j2 j3))
+      (core/transact-graph store (api/simple-graph j1 j2 j3))
       (is (= [(:job/id j2)] (core/jobs-dead store thresh))))))
 
-(defn test-protocol [store]
-  (test-job-info store)
-  (test-updating-jobs store)
-  (test-jobs-ready store)
-  (test-jobs-dead store))
+(defn test-protocol
+  "Run a test suite exercising the Store protocol, given a nullary
+  factory function to produce fresh Store instances"
+  [store-factory]
+  (test-job-info (store-factory))
+  (test-updating-jobs (store-factory))
+  (test-jobs-ready (store-factory))
+  (test-jobs-dead (store-factory)))

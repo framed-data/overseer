@@ -1,15 +1,14 @@
 (ns overseer.store.datomic-test
  (:require [clojure.test :refer :all]
            [datomic.api :as d]
+           [framed.std.time :as std.time]
+           loom.graph
+           [taoensso.timbre :as timbre]
            (overseer
              [core :as core]
              [test-utils :as test-utils])
            [overseer.store.datomic :as store]
-           [taoensso.timbre :as timbre]
-           [clj-time.core :as tcore]
-           [framed.std.time :as std.time]
-           [overseer.store-test :as store-test]
-           loom.graph))
+           [overseer.store-test :as store-test]))
 
 (defn test-datomic-conn []
   (d/connect (test-utils/bootstrap-datomic-uri)))
@@ -69,7 +68,7 @@
     (is (not (ready? (resolve-tempid -1006)))
         "It excludes jobs that are :aborted")))
 
-(deftest test-transitive-dependents
+(deftest test-dependents
   (let [conn (test-datomic-conn)
         graph [{:db/id (d/tempid :db.part/user -1001)
                 :job/id "-1001"}
@@ -86,23 +85,23 @@
                 :job/id "-1005"}]
         {:keys [tempids db-after] :as txn} @(d/transact conn graph)]
     (is (= #{"-1002" "-1003" "-1004"}
-           (store/transitive-dependents db-after "-1001"))
-        "It returns all nodes that depend upon the given node, even indirectly.")
-    (is (= #{} (store/transitive-dependents db-after "-1004"))
-        "It doesn't return nodes that are only leaves")
-    (is (= #{} (store/transitive-dependents db-after "-1005"))
-        "It doesn't return disconnected nodes")))
+           (store/dependents db-after "-1001"))
+        "It returns all nodes that depend upon the given node, directly and transitively")
+    (is (= #{} (store/dependents db-after "-1004"))
+        "It returns nothing for leaf nodes")
+    (is (= #{} (store/dependents db-after "-1005"))
+        "It returns nothing for disconnected nodes")))
 
-(deftest test-protcol
-  (store-test/test-protocol (test-store)))
+(deftest test-protocol
+  (store-test/test-protocol test-store))
 
 (deftest test-transact-graph
   (let [j0 (test-utils/job {:job/type :start})
         j1 (test-utils/job {:job/type :step1})
         j2 (test-utils/job {:job/type :step2})
 
-        ; Structurally this graph is well formed, but it does not satisfy
-        ; `loom.graph/Digraph` (missing `loom.graph/digraph` call)
+        ; This graph is the proper adjacency list format, but it does not satisfy
+        ; `loom.graph/Digraph` (needs to be passed to `loom.graph/digraph`)
         invalid-graph
         {j0 []
          j1 [j0]

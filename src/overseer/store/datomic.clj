@@ -1,31 +1,89 @@
 (ns ^:no-doc overseer.store.datomic
-  "Implementation of overseer.core/Store in Datomic"
+  "Implementation of overseer.core/Store for Datomic"
   (:require [clojure.set :as set]
             [datomic.api :as d]
             [framed.std.core :as std]
-            (loom graph derived)
-            [overseer.core :as overseer]))
+            (loom derived graph)
+            (overseer
+              [core :as core]
+              [util :as util])))
 
-(defn- when-update [m k f]
-  (if (contains? m k)
-    (update m k f)
-    m))
+(def schema-txn
+  "Datomic transaction to install the store"
+  [{:db/id (d/tempid :db.part/db)
+    :db/ident :job/id
+    :db/valueType :db.type/string
+    :db/unique :db.unique/identity
+    :db/cardinality :db.cardinality/one
+    :db/doc "A job's unique ID (a semi-sequential UUID)"
+    :db.install/_attribute :db.part/db}
+
+   {:db/id (d/tempid :db.part/db)
+    :db/ident :job/type
+    :db/valueType :db.type/keyword
+    :db/cardinality :db.cardinality/one
+    :db/doc "A job's type, represented by a keyword"
+    :db.install/_attribute :db.part/db}
+
+   {:db/id (d/tempid :db.part/db)
+    :db/ident :job/args
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    :db/doc "The arguments passed to a job (serialized as EDN)"
+    :db.install/_attribute :db.part/db}
+
+   {:db/id (d/tempid :db.part/db)
+    :db/ident :job/status
+    :db/valueType :db.type/keyword
+    :db/cardinality :db.cardinality/one
+    :db/doc "A job's status (unstarted|started|aborted|failed|finished)"
+    :db/index true
+    :db.install/_attribute :db.part/db}
+
+   {:db/id (d/tempid :db.part/db)
+    :db/ident :job/failure
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    :db/doc "An EDN serialized map containing a jobs failure information"
+    :db.install/_attribute :db.part/db}
+
+   {:db/id (d/tempid :db.part/db)
+    :db/ident :job/dep
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/many
+    :db/doc
+    "Dependency of this job ('parent'). Refers to other jobs
+    that must be completed before this job can run."
+    :db.install/_attribute :db.part/db}
+
+   {:db/id (d/tempid :db.part/db)
+    :db/ident :job/heartbeat
+    :db/valueType :db.type/long
+    :db/cardinality :db.cardinality/one
+    :db/doc "Unix timestamp of periodic heartbeat from node working on this job"
+    :db.install/_attribute :db.part/db}])
+
+(defn install' [conn]
+  @(d/transact conn schema-txn)
+  :ok)
 
 (defn job-info' [db job-id]
   (-> (d/pull db [:*] [:job/id job-id])
-      (when-update :job/args std/from-edn)))
+      (util/when-update :job/args std/from-edn)
+      (util/when-update :job/failure std/from-edn)))
 
-(defn transitive-dependents [db job-id]
-  "Returns a set of job IDs that transitively depend upon given job ID."
-  (let [rules '[[(dependent ?j1 ?j0)
+(defn dependents [db job-id]
+  "Returns the set of all Job IDs that depend on given `job-id`, both
+  directly and transitively"
+  (let [rules '[[(dependent? ?j1 ?j0)
                  [?j1 :job/dep ?j0]]
-                [(dependent ?j2 ?j0)
-                 (dependent ?j2 ?j1)
-                 (dependent ?j1 ?j0)]]]
+                [(dependent? ?j2 ?j0)
+                 (dependent? ?j2 ?j1)
+                 (dependent? ?j1 ?j0)]]]
     (set (d/q '[:find [?dep-jid ...]
                 :in $ % ?jid
                 :where [?j0 :job/id ?jid]
-                       [dependent ?j1 ?j0]
+                       [dependent? ?j1 ?j0]
                        [?j1 :job/id ?dep-jid]]
               db
               rules
@@ -35,14 +93,14 @@
   "Find all job IDs that are ready to run, i.e. :unstarted
   and not blocked (i.e. dependent on an unfinished job)"
   [db]
-  (let [rules '[[(blocked ?j)
+  (let [rules '[[(blocked? ?j)
                  [?j :job/dep ?dep]
                  [?dep :job/status ?js]
                  [(not= :finished ?js)]]]]
     (->> (d/q '[:find [?jid ...]
                 :in $ %
                 :where [?j :job/status :unstarted]
-                       (not [blocked ?j])
+                       (not [blocked? ?j])
                        [?j :job/id ?jid]]
               db
               rules)
@@ -67,7 +125,8 @@
         (fn [job]
           (-> job
               (assoc :db/id (d/tempid :db.part/user))
-              (when-update :job/args std/to-edn)))
+              (util/when-update :job/args std/to-edn)
+              (util/when-update :job/failure std/to-edn)))
 
         graph-with-tempids
         (loom.derived/mapped-by job-assertion graph)
@@ -78,9 +137,6 @@
     (concat
       (loom.graph/nodes graph-with-tempids)
       (map dep-edge (loom.graph/edges graph-with-tempids)))))
-
-(defn heartbeat []
-  (quot (System/currentTimeMillis) 1000))
 
 (defn cas-failed?
   "Return whether an exception is specifically a Datomic check-and-set failure"
@@ -99,19 +155,22 @@
         (throw ex#)))))
 
 (defn heartbeat-assertion [job-id]
-  [:db/add [:job/id job-id] :job/heartbeat (heartbeat)])
+  [:db/add [:job/id job-id] :job/heartbeat (core/heartbeat)])
 
 (defrecord DatomicStore [conn]
-  overseer/Store
-  (job-info [this job-id]
-    (job-info' (d/db conn) job-id))
+  core/Store
+  (install [this]
+    (install' conn))
 
   (transact-graph [this graph]
-    (assert (overseer/valid-graph? graph))
+    (assert (core/valid-graph? graph))
     (->> graph
          loom-graph->datomic-txn
          (d/transact conn)
          deref))
+
+  (job-info [this job-id]
+    (job-info' (d/db conn) job-id))
 
   (reserve-job [this job-id]
     (with-ignore-cas
@@ -131,14 +190,14 @@
     @(d/transact conn [(heartbeat-assertion job-id)]))
 
   (abort-job [this job-id]
-    (let [job-ids (cons job-id (transitive-dependents (d/db conn) job-id))
+    (let [job-ids (cons job-id (dependents (d/db conn) job-id))
           abort (fn [jid] [:db/add [:job/id jid] :job/status :aborted])]
       @(d/transact conn (map abort job-ids))))
 
   (reset-job [this job-id]
     (let [old-heartbeat (:job/heartbeat (d/pull (d/db conn) [:job/heartbeat] [:job/id job-id]))]
       (with-ignore-cas
-        @(d/transact conn [[:db.fn/cas [:job/id job-id] :job/heartbeat old-heartbeat (heartbeat)]
+        @(d/transact conn [[:db.fn/cas [:job/id job-id] :job/heartbeat old-heartbeat (core/heartbeat)]
                            [:db.fn/cas [:job/id job-id] :job/status :started :unstarted]]))))
 
   (jobs-ready [this]
