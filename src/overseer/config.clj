@@ -26,10 +26,6 @@
     :sleep-time - Optional; How long to sleep in ms if the job queue is empty (default: 10000)
 
     :heartbeat - map of optional attributes to configure worker heartbeating
-      :enabled - When enabled, each node will periodically persist a timestamp
-                 'heartbeat' via the DB and also act as a monitor resetting jobs
-                 detected to be failing heartbeat checks
-                 (default: true)
       :sleep-time - How long to sleep in ms before persisting heartbeat (per-worker)
                     (default: 60000)
       :tolerance - How many heartbeats can fail before job is considered dead
@@ -60,9 +56,6 @@
 
 (defn sleep-time [config]
   (get config :sleep-time 10000))
-
-(defn heartbeat?  [config]
-  (get-in config [:heartbeat :enabled] true))
 
 (defn heartbeat-sleep-time [config]
   (get-in config [:heartbeat :sleep-time] 60000))

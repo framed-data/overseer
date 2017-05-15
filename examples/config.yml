@@ -15,17 +15,15 @@ detector-sleep-time: 2000
 # Default: 10000
 sleep-time: 10000
 
-# Optional: Enable job heartbeats, whereby each node will periodically
-# persist a timestamp via the DB and also act as a monitor that resets
+# Optional: Configure job heartbeats, in which each node periodically
+# persists a timestamp via the DB and also act as a monitor that resets
 # other jobs detected to be failing heartbeat checks
 #
-#   enabled - Default: true
 #   sleep-time: How long to sleep between persisting heartbeats (per-worker)
 #               Default: 60000
 #   tolerance: How many heartbeats can fail before job is considered dead
 #              to be reset by a monitor (Default: 5)
 heartbeat:
-  enabled: true
   sleep-time: 60000
   tolerance: 5
 
