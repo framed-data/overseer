@@ -73,7 +73,7 @@
             (swap! ready-jobs disj job)
 
             (timbre/info (format "Reserving job %s (%s)" job-id (:job/type job)))
-            (if-let [reserved-job (core/reserve-job store job)]
+            (if-let [reserved-job (core/reserve-job store job-id)]
               (do (timbre/info "Reserved job" job-id)
                   (reset! current-job job)
                   (run-job config store job-handlers job)

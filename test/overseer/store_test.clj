@@ -122,16 +122,17 @@
           (core/reserve-job store job-id)
           (core/finish-job store job-id))
 
-        _ (core/transact-graph store graph)
-        jobs-ready (core/jobs-ready store)]
-    (is (contains? jobs-ready "j0-id"))
-    (is (not (contains? jobs-ready "j1-id")))
-    (is (not (contains? jobs-ready "j2-id")))
+        _ (core/transact-graph store graph)]
+    (let [jobs-ready (set (core/jobs-ready store))]
+      (is (contains? jobs-ready "j0-id"))
+      (is (not (contains? jobs-ready "j1-id")))
+      (is (not (contains? jobs-ready "j2-id"))))
     (start-and-finish "j0-id")
-    (is (contains? (core/jobs-ready store) "j1-id"))
-    (is (not (contains? jobs-ready "j2-id")))
+    (let [jobs-ready (set (core/jobs-ready store))]
+      (is (contains? jobs-ready "j1-id"))
+      (is (not (contains? jobs-ready "j2-id"))))
     (start-and-finish "j1-id")
-    (is (contains? (core/jobs-ready store) "j2-id"))))
+    (is (contains? (set (core/jobs-ready store) )"j2-id"))))
 
 (defn test-jobs-dead [store]
   (timbre/with-log-level :report

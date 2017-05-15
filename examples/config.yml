@@ -2,8 +2,10 @@
 # out of the box. All options are shown here for completeness.
 
 # Required
-datomic:
-  uri: datomic:free://localhost:4334/overseer
+store:
+  adapter: datomic
+  config:
+    uri: datomic:free://localhost:4334/overseer
 
 # Optional: How to sleep (in ms) between ready job detector runs
 # (ready jobs are periodically cached)

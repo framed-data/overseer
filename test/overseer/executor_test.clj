@@ -52,3 +52,27 @@
       (is (= 15 (exc/invoke-handler handler-fn job)))
       (is (= 15 (exc/invoke-handler handler-map job)))
       (is (thrown? Exception (exc/invoke-handler bad-handler job))))))
+
+(defn- silent-cancel [fut]
+  (try (future-cancel fut) (catch Exception ex nil)))
+
+(deftest test-start-executor
+  (timbre/with-log-level :report
+    (let [config {}
+          store (test-utils/store)
+          processed (atom 0)
+          job-handlers {:process (fn [job] (swap! processed inc))}
+          job (test-utils/job {:job/type :process})
+          ready-jobs (atom #{job})
+          current-job (atom nil)
+
+          _ (core/transact-graph store (api/simple-graph job))
+
+          exc-fut
+          (exc/start-executor config store job-handlers ready-jobs current-job)]
+      (try
+        (Thread/sleep 500)
+        (is (= 1 @processed)
+            "It repeatedly reserves and executes ready jobs")
+      (finally
+        (silent-cancel exc-fut))))))

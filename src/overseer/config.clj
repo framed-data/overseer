@@ -3,42 +3,57 @@
   optional, and Overseer should 'just work' out of the box. The entire set
   of configuration options are:
 
-    :store - Required backend store type to connect to. For now, must be :datomic
-             The corresponding key of the same name must also be present
-             to configure the store
+    :store
+      :adapter - Required String backend store type to connect to. One of datomic, mysql, h2
+      :config - options to configure the selected adapter
+        If Datomic:
+          - map of :uri, required connection String, ex: \"datomic:free://localhost:4334/overseer\"
+        If MySQL/H2:
+          - clojure.java.jdbc \"database spec\"
+            - map of :dbtype, :dbname and other options as needed, such as :user, :password, :host, :port
+            - map of driver :classname, :subprotocol, :hostname, :port, :subname, :user, :password
+            - map of :connection-uri String option passed directly to driver
+            - map of :name and :environment keys for JNDI connection
+            - Can also just be a String JDBC URI
+            See http://clojure-doc.org/articles/ecosystem/java_jdbc/home.html#setting-up-a-data-source
 
-    :datomic - map configuring the Datomic store (required if using Datomic store)
-      :uri - If using Datomic store, required connection String, ex:
-             \"datomic:free://localhost:4334/overseer\"
+    :sentry - Optional map configuring the Sentry error backend
+      :dsn - String DSN to use
 
-  :sentry - Optional map configuring the Sentry error backend
-    :dsn - String DSN to use
+    :detector-sleep-time - Optional; How long to sleep between ready job detector runs in ms
+                           (default: 2000)
 
-  :detector-sleep-time - Optional; How long to sleep between ready job detector runs in ms
-                         (default: 2000)
+    :sleep-time - Optional; How long to sleep in ms if the job queue is empty (default: 10000)
 
-  :sleep-time - Optional; How long to sleep in ms if the job queue is empty (default: 10000)
-
-  :heartbeat - map of optional attributes to configure worker heartbeating
-    :enabled - When enabled, each node will periodically persist a timestamp
-               'heartbeat' via the DB and also act as a monitor resetting jobs
-               detected to be failing heartbeat checks
-               (default: true)
-    :sleep-time - How long to sleep in ms before persisting heartbeat (per-worker)
-                  (default: 60000)
-    :tolerance - How many heartbeats can fail before job is considered dead
-                 to be reset by a monitor (default: 5)")
+    :heartbeat - map of optional attributes to configure worker heartbeating
+      :enabled - When enabled, each node will periodically persist a timestamp
+                 'heartbeat' via the DB and also act as a monitor resetting jobs
+                 detected to be failing heartbeat checks
+                 (default: true)
+      :sleep-time - How long to sleep in ms before persisting heartbeat (per-worker)
+                    (default: 60000)
+      :tolerance - How many heartbeats can fail before job is considered dead
+                 to be reset by a monitor (default: 5)"
+  (:require [framed.std.core :as std]))
 
 (defn store-type [config]
-  (let [store-type (some-> config :store keyword)]
-    (assert (and store-type (contains? config store-type))
-            "Store type and corresponding config key is required")
-    store-type))
+  (let [adapter (some-> config :store :adapter keyword)]
+    (assert adapter "Store adapter is required")
+    adapter))
 
 (defn datomic-config [config]
-  (let [cfg (:datomic config)]
-    (assert (:uri cfg) "Datomic URI is required")
+  (let [cfg (get-in config [:store :config])]
+    (assert (:uri cfg) ":uri is required when using Datomic")
     cfg))
+
+(def jdbc-adapters #{:mysql :h2})
+
+(defn jdbc-config [config]
+  (let [db-spec (get-in config [:store :config])
+        adapter (store-type config)]
+    (assert (and db-spec (contains? jdbc-adapters adapter))
+            "Valid JDBC adapter and config are required")
+    (std/map-from-keys adapter db-spec)))
 
 (defn detector-sleep-time [config]
   (get config :detector-sleep-time 2000))

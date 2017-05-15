@@ -53,23 +53,22 @@
                  :finish [:process-1b :process-2]}
                 {:org/id 123}))
     ; => Graph<Job>, ex:
-    ;    {{:job/id 1 :job/type :start :org/id 123} []
-          {:job/id 2 :job/type :process-1a :org/id 123} [{:job/id 1 ...}]
-          {:job/id 3 :job/type :process-1b :org/id 123} [{:job/id 2 ...}]
+    ;    {{:job/id 1 :job/type :start :job/args {:org/id 123}} []
+          {:job/id 2 :job/type :process-1a :job/args {:org/id 123}} [{:job/id 1 ...}]
+          {:job/id 3 :job/type :process-1b :job/args {:org/id 123}} [{:job/id 2 ...}]
           ...}"
-  [job-type-graph tx]
+  [job-type-graph job-args]
   (let [graph (loom.graph/digraph job-type-graph)
 
-        job-ids-by-job-type ; {:job-type-foo #uuid "abc123..."}
-        (std/zipmap-seq identity (fn [_] (squuid)) (loom.graph/nodes graph))
+        job-ids-by-job-type ; {:job-type-foo "abc123..."}
+        (std/zipmap-seq identity (fn [_] (str (squuid))) (loom.graph/nodes graph))
 
         job-type->job-map
         (fn [job-type]
-          (merge
-            {:job/id (job-ids-by-job-type job-type)
-             :job/status :unstarted
-             :job/type job-type}
-            tx))]
+          {:job/id (job-ids-by-job-type job-type)
+           :job/status :unstarted
+           :job/type job-type
+           :job/args job-args})]
     (loom.derived/mapped-by job-type->job-map graph)))
 
 (defn missing-handlers
@@ -85,6 +84,27 @@
   []
   (quot (System/currentTimeMillis) 1000))
 
+; Core functions encompassing the system's interaction with storage backends
+; These functions effectively represent the finite state machine transitions
+; that a job goes through:
+;
+;      unstarted ---------+
+;       |  ^              |
+;       |  |              |
+;       v  |              |
+;      started -----------+
+;      /     \            |
+;     /        \          |
+; finished   failed   aborted
+;
+; The system internally handles the transitions:
+;   unstarted -> started
+;   started -> finished
+;   started -> failed
+;
+; Callers can force transitions using the functions in `overseer.api`:
+;   started -> unstarted
+;   started,unstarted -> aborted (affects dependent children as well)
 (defprotocol Store
   (install [this]
     "Install store configuration (create system tables, etc). *Not* guaranteed
