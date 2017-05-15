@@ -7,7 +7,6 @@
             (overseer
               [config :as config]
               [core :as core]
-              [lottery :as lottery]
               [errors :as errors])))
 
 (defn invoke-handler
@@ -69,7 +68,7 @@
       (do (timbre/info "No handleable ready-jobs found. Waiting.")
           (Thread/sleep (config/sleep-time config)))
       (do (timbre/info "Found" (count @ready-jobs) "handleable jobs.")
-          (let [{job-id :job/id :as job} (lottery/run-lottery @ready-jobs)]
+          (let [{job-id :job/id :as job} (rand-nth (seq @ready-jobs))]
             (swap! ready-jobs disj job)
 
             (timbre/info (format "Reserving job %s (%s)" job-id (:job/type job)))
