@@ -34,12 +34,10 @@
         (exc/start-executor config store job-handlers ready-jobs current-job)
 
         heartbeat-fut
-        (when (config/heartbeat? config)
-          (heartbeat/start-heartbeat config store current-job))
+        (heartbeat/start-heartbeat config store current-job)
 
         heartbeat-monitor-fut
-        (when (config/heartbeat? config)
-          (heartbeat/start-monitor config store))]
+        (heartbeat/start-monitor config store)]
     (std/map-from-keys
       detector-fut
       executor-fut
