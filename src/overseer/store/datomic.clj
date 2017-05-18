@@ -6,7 +6,8 @@
             (loom derived graph)
             (overseer
               [core :as core]
-              [util :as util])))
+              [util :as util]))
+  (:import java.util.concurrent.ExecutionException))
 
 (def schema-txn
   "Datomic transaction to install the store"
@@ -63,8 +64,21 @@
     :db/doc "Unix timestamp of periodic heartbeat from node working on this job"
     :db.install/_attribute :db.part/db}])
 
+(def abort-if-job-exists
+  "DB function to abort a transaction if any job-id in `job-ids` already exists in the DB"
+  {:db/id (d/tempid :db.part/user)
+   :db/ident :abort-if-job-exists
+   :db/fn
+   (datomic.function/construct
+     {:lang "clojure"
+      :params '[db job-ids]
+      :code
+      '(when-let [existing-ent (some #(datomic.api/entity db [:job/id %]) job-ids)]
+         (throw (ex-info (format "Job exists in DB: %s" (pr-str existing-ent))
+                         {:cause :job-id-exists})))})})
+
 (defn install' [conn]
-  @(d/transact conn schema-txn)
+  @(d/transact conn (conj schema-txn abort-if-job-exists))
   :ok)
 
 (defn job-info' [db job-id]
@@ -150,7 +164,7 @@
 (defmacro with-ignore-cas [& body]
   `(try
     ~@body
-    (catch java.util.concurrent.ExecutionException ex#
+    (catch ExecutionException ex#
       (when-not (cas-failed? ex#)
         (throw ex#)))))
 
@@ -164,10 +178,18 @@
 
   (transact-graph [this graph]
     (assert (core/valid-graph? graph))
-    (->> graph
-         loom-graph->datomic-txn
-         (d/transact conn)
-         deref))
+    (let [db (d/db conn)
+          proposed-ids (->> graph loom.graph/nodes (map :job/id))
+          tx (loom-graph->datomic-txn graph)]
+      (try
+        (->> tx
+             (into [[:abort-if-job-exists proposed-ids]])
+             (d/transact conn)
+             deref)
+        (catch ExecutionException ex
+          (when-not (= :job-id-exists (->> ex (.getCause) ex-data :cause))
+            (throw ex))))
+      graph))
 
   (job-info [this job-id]
     (job-info' (d/db conn) job-id))

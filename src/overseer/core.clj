@@ -111,8 +111,9 @@
     to be idempotent. Returns :ok on success")
 
   (transact-graph [this graph]
-    "Given a Graph, atomically transact all of its jobs/dependencies into the store.
-    Side-effecting only; return value is undefined (raises if transaction fails)")
+    "Given a Graph, atomically transact all of its jobs/dependencies into the store and
+    return it. Idempotent on job-ids in graph: if any job-ids already exist in store, will not
+    double insert *or* update (if different args supplied, for example)")
 
   (job-info [this job-id]
     "Given a job-id, return a Job")
