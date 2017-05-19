@@ -11,7 +11,8 @@
             (loom graph)
             (overseer
               [core :as core]
-              [util :as util])))
+              [util :as util]))
+  (:import com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException))
 
 (def status-code
   {:unstarted 0
@@ -153,6 +154,12 @@
      "CREATE INDEX index_overseer_dependencies_on_dep_id ON overseer_dependencies (dep_id)"])
   :ok)
 
+(defn dup-primary-key-ex? [adapter ex]
+  (let [msg (.getMessage ex)]
+    (case adapter
+      :mysql (instance? MySQLIntegrityConstraintViolationException ex)
+      :h2 (re-find #"^Unique index or primary key violation" msg))))
+
 (defrecord JdbcStore [adapter db-spec]
   core/Store
   (install [this]
@@ -166,9 +173,15 @@
                         (map job->jdbc-map)
                         (map #(assoc % :created_at now :updated_at now)))
           dep-rows (job-dep-jdbc-maps graph)]
-      (j/with-db-transaction [t-con db-spec]
-        (j/insert-multi! t-con :overseer_jobs job-rows)
-        (j/insert-multi! t-con :overseer_dependencies dep-rows))))
+      (try
+        (j/with-db-transaction [t-con db-spec]
+          (j/insert-multi! t-con :overseer_jobs job-rows)
+          (j/insert-multi! t-con :overseer_dependencies dep-rows))
+        graph
+        (catch Exception ex
+          (if (dup-primary-key-ex? adapter ex)
+            graph
+            (throw ex))))))
 
   (job-info [this job-id]
     (query-job db-spec job-id))

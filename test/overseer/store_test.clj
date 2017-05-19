@@ -24,6 +24,21 @@
   (->> (tcore/minus now (tcore/millis millis-ago))
        std.time/datetime->unix))
 
+(defn test-transact-graph [store]
+  (testing "idempotent transaction"
+    (let [j1 (test-utils/job {:job/id "foo-id" :job/args {:x 1}})
+          graph1 (api/simple-graph j1)
+
+          j2 (test-utils/job {:job/id "foo-id" :job/args {:x 2}})
+          graph2 (api/simple-graph j2)]
+      (is (= graph1 (core/transact-graph store graph1))
+          "It returns the graph after inserting into the store")
+      (is (= graph1 (core/transact-graph store graph1))
+          "It is idempotent on duplicate job-id insert")
+      (core/transact-graph store graph2)
+      (is (= {:x 1} (:job/args (core/job-info store "foo-id")))
+          "It does not upsert into the store given duplicate job-ids"))))
+
 (defn test-job-info [store]
   (testing "arg serialization roundtripping"
     (let [job (test-utils/job
@@ -152,6 +167,7 @@
   "Run a test suite exercising the Store protocol, given a nullary
   factory function to produce fresh Store instances"
   [store-factory]
+  (test-transact-graph (store-factory))
   (test-job-info (store-factory))
   (test-updating-jobs (store-factory))
   (test-jobs-ready (store-factory))

@@ -134,7 +134,21 @@
             process-id (:job/id (:process jobs-by-type))]
         (is (= 1 (count deps)))
         (is (= process-id (:job_id (first deps))))
-        (is (= start-id (:dep_id (first deps))))))))
+        (is (= start-id (:dep_id (first deps))))))
+    (testing "idempotent insert"
+      (let [count-jobs
+            (fn []
+              (->> {:select [[:%count.* "job_count"]] :from [:overseer_jobs]}
+                   sql/format
+                   (j/query db-spec)
+                   first
+                   :job_count))]
+        (is (= graph (core/transact-graph store graph))
+            "It returns graph after inserting into the store")
+        (is (= 2 (count-jobs)))
+        (is (= graph (core/transact-graph store graph))
+            "It returns graph if job-ids already exist in the store")
+        (is (= 2 (count-jobs)) "It is idempotent on job-ids")))))
 
 (def ^:private sql-type-timestamp 93) ; From sql.h; corresponds to datetime
 
