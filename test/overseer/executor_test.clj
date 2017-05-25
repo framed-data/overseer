@@ -10,7 +10,7 @@
 (deftest test-run-job-success
   (timbre/with-log-level :report
     (let [config {}
-          store (test-utils/store)
+          store (test-utils/datomic-store)
           job-handlers {:foo (fn [job] :ok)}
 
           {job-id :job/id :as job} (test-utils/job {:job/type :foo})]
@@ -23,7 +23,7 @@
 (deftest test-run-job-failure
   (timbre/with-log-level :report
     (let [config {}
-          store (test-utils/store)
+          store (test-utils/datomic-store)
           job-handlers {:bar (fn [job] (throw (Exception. "boom")))}
 
           {job-id :job/id :as job} (test-utils/job {:job/type :bar})]
@@ -53,13 +53,10 @@
       (is (= 15 (exc/invoke-handler handler-map job)))
       (is (thrown? Exception (exc/invoke-handler bad-handler job))))))
 
-(defn- silent-cancel [fut]
-  (try (future-cancel fut) (catch Exception ex nil)))
-
 (deftest test-start-executor
   (timbre/with-log-level :report
     (let [config {}
-          store (test-utils/store)
+          store (test-utils/datomic-store)
           processed (atom 0)
           job-handlers {:process (fn [job] (swap! processed inc))}
           job (test-utils/job {:job/type :process})
@@ -75,4 +72,4 @@
         (is (= 1 @processed)
             "It repeatedly reserves and executes ready jobs")
       (finally
-        (silent-cancel exc-fut))))))
+        (test-utils/silent-cancel exc-fut))))))

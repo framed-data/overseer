@@ -10,22 +10,8 @@
              [core :as core]
              [test-utils :as test-utils])
            [overseer.store.jdbc :as store]
-           [overseer.store-test :as store-test]))
-
-(defn- test-store
-  "Generate a fresh/configured store against a new in-memory H2 DB"
-  []
-  (let [store
-        (store/store
-          {:adapter :h2
-           :db-spec
-           {:classname "org.h2.Driver"
-            :subprotocol "h2:mem://"
-            :subname (str (std/rand-alphanumeric 12) ";DB_CLOSE_DELAY=-1")
-            :user "sa" ; System Administrator username
-            :password ""}})]
-    (core/install store)
-    store))
+           [overseer.store-test :as store-test]
+           [overseer.heartbeat-test :as heartbeat-test]))
 
 (deftest test-job->jdbc-map
   (let [job {:job/id "foo-id"
@@ -57,7 +43,7 @@
   ; Test that optimistic concurrency is implemented correctly (via lock_version)
   ; Start two concurrent update attempts on the same row; expect only 1 to win
   ; and subsequently update the row / increment the lock
-  (let [{:keys [db-spec] :as store} (test-store)
+  (let [{:keys [db-spec] :as store} (test-utils/jdbc-store)
         {job-id :job/id :as job} (test-utils/job)
 
         conflicts (atom 0)
@@ -74,7 +60,7 @@
     (is (= :started (:job/status (store/query-job db-spec job-id))))))
 
 (deftest test-dependents
-  (let [{:keys [db-spec] :as store} (test-store)
+  (let [{:keys [db-spec] :as store} (test-utils/jdbc-store)
 
         j0 (test-utils/job {:job/id "j0"})
         j1 (test-utils/job {:job/id "j1"})
@@ -106,7 +92,7 @@
            (set (store/job-dep-jdbc-maps graph))))))
 
 (deftest test-transact-graph
-  (let [{:keys [db-spec] :as store} (test-store)
+  (let [{:keys [db-spec] :as store} (test-utils/jdbc-store)
         args {:org/id 123}
         graph (core/job-graph
                 {:start []
@@ -153,7 +139,7 @@
 (def ^:private sql-type-timestamp 93) ; From sql.h; corresponds to datetime
 
 (deftest test-install
-  (let [{:keys [db-spec] :as store} (test-store)]
+  (let [{:keys [db-spec] :as store} (test-utils/jdbc-store)]
     (testing "tables"
       (let [tables-by-name
             (->> {:select [:*] :from [:information_schema.tables]}
@@ -189,4 +175,7 @@
           "VARCHAR" "dep_id")))))
 
 (deftest test-protocol
-  (store-test/test-protocol test-store))
+  (store-test/test-protocol test-utils/jdbc-store))
+
+(deftest test-heartbeat
+  (heartbeat-test/test-heartbeats test-utils/jdbc-store))

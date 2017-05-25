@@ -8,16 +8,11 @@
              [core :as core]
              [test-utils :as test-utils])
            [overseer.store.datomic :as store]
-           [overseer.store-test :as store-test]))
-
-(defn test-datomic-conn []
-  (d/connect (test-utils/bootstrap-datomic-uri)))
-
-(defn test-store []
-  (store/store (test-utils/bootstrap-datomic-uri)))
+           [overseer.store-test :as store-test]
+           [overseer.heartbeat-test :as heartbeat-test]))
 
 (deftest test-jobs-ready
-  (let [conn (test-datomic-conn)
+  (let [{:keys [conn] :as store} (test-utils/datomic-store)
         db (d/db conn)
         ->squuid #(str (d/squuid))
         jobs-txn
@@ -69,7 +64,7 @@
         "It excludes jobs that are :aborted")))
 
 (deftest test-dependents
-  (let [conn (test-datomic-conn)
+  (let [{:keys [conn] :as store} (test-utils/datomic-store)
         graph [{:db/id (d/tempid :db.part/user -1001)
                 :job/id "-1001"}
                {:db/id (d/tempid :db.part/user -1002)
@@ -93,7 +88,10 @@
         "It returns nothing for disconnected nodes")))
 
 (deftest test-protocol
-  (store-test/test-protocol test-store))
+  (store-test/test-protocol test-utils/datomic-store))
+
+(deftest test-heartbeat
+  (heartbeat-test/test-heartbeats test-utils/datomic-store))
 
 (deftest test-transact-graph
   (let [j0 (test-utils/job {:job/type :start})
@@ -106,4 +104,4 @@
         {j0 []
          j1 [j0]
          j2 [j1]}]
-    (is (thrown? AssertionError (core/transact-graph (test-store) invalid-graph)))))
+    (is (thrown? AssertionError (core/transact-graph (test-utils/datomic-store) invalid-graph)))))

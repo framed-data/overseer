@@ -88,7 +88,7 @@
 (deftest test-fault
   (timbre/with-log-level :report
     (let [config {}
-          store (test-utils/store)
+          store (test-utils/datomic-store)
           job-ran? (atom false)
           job-handlers {:bar (fn [job]
                                (reset! job-ran? true)
