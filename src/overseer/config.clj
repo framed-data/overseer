@@ -29,7 +29,11 @@
       :sleep-time - How long to sleep in ms before persisting heartbeat (per-worker)
                     (default: 60000)
       :tolerance - How many heartbeats can fail before job is considered dead
-                 to be reset by a monitor (default: 5)"
+                 to be reset by a monitor (default: 5)
+
+      :monitor-shutdown - Boolean, whether to shutdown the system when the heartbeat
+                          monitor encounters an error (avoids running in a degraded state)
+                          Default: true"
   (:require [framed.std.core :as std]))
 
 (defn store-type [config]
@@ -62,6 +66,9 @@
 
 (defn failed-heartbeat-tolerance [config]
   (get-in config [:heartbeat :tolerance] 5))
+
+(defn monitor-shutdown? [config]
+  (get-in config [:heartbeat :monitor-shutdown] true))
 
 (defn sentry-dsn [config]
   (get-in config [:sentry :dsn]))

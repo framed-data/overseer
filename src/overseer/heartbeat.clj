@@ -1,10 +1,11 @@
 (ns ^:no-doc overseer.heartbeat
   "Processes to send heartbeats for running jobs, and monitor
-   other jobs for failures
+  other jobs for failures
 
-   Note that the system does *not* support running in a degraded state;
-   if any component here experiences an error the entire system will shutdown
-   (presumably to be restarted by an external process supervisor)"
+  Note that by default the system does not support running in a degraded state;
+  if the heartbeat monitor experiences an error the entire system will shutdown
+  (presumably to be restarted by an external process supervisor)
+  See `overseer.config` to configure this behavior"
   (:require [clojure.string :as string]
             [clj-time.core :as tcore]
             [taoensso.timbre :as timbre]
@@ -26,7 +27,8 @@
       (Thread/sleep (config/heartbeat-sleep-time config))
       (catch Exception ex
         (timbre/error ex)
-        (System/exit 1))))) ; Conservative, avoid running in degraded state
+        (when (config/monitor-shutdown? config)
+          (System/exit 1))))))
 
 ;;
 
@@ -53,13 +55,14 @@
   (future-loop
     (try
       (let [thresh (liveness-threshold config (tcore/now))
-            jobs (core/jobs-dead store thresh)]
-        (when (seq jobs)
-          (timbre/warn (format "Found %s jobs with failed heartbeats" (count jobs)))
-          (timbre/warn (str "Resetting: " (string/join ", " (map :job/id jobs))))
-          (doseq [{:keys [job/id] :as job} jobs]
+            job-ids (core/jobs-dead store thresh)]
+        (when (seq job-ids)
+          (timbre/warn (format "Found %s jobs with failed heartbeats" (count job-ids)))
+          (timbre/warn (str "Resetting: " (string/join ", " job-ids)))
+          (doseq [id job-ids]
             (core/reset-job store id)))
         (Thread/sleep (+ (config/heartbeat-sleep-time config) (sleep-stagger))))
       (catch Exception ex
         (timbre/error ex)
-        (System/exit 1))))) ; Conservative, avoid running in degraded state
+        (when (config/monitor-shutdown? config)
+          (System/exit 1))))))
