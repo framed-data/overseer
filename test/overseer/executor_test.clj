@@ -55,7 +55,8 @@
 
 (deftest test-start-executor
   (timbre/with-log-level :report
-    (let [config {}
+    (let [ex-handler (fn [ex] nil)
+          config {}
           store (test-utils/datomic-store)
           processed (atom 0)
           job-handlers {:process (fn [job] (swap! processed inc))}
@@ -66,7 +67,7 @@
           _ (core/transact-graph store (api/simple-graph job))
 
           exc-fut
-          (exc/start-executor config store job-handlers ready-jobs current-job)]
+          (exc/start-executor ex-handler config store job-handlers ready-jobs current-job)]
       (try
         (Thread/sleep 500)
         (is (= 1 @processed)
