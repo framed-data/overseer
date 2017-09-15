@@ -80,6 +80,17 @@
       (assoc-in m [:overseer/failure :data] exc-data)
       m)))
 
+(defn ->fatal-ex-handler
+  "Exception handler that will log error and send to Sentry if configured,
+  and then shut down the entire process. Primarily for monitoring of irrecoverable
+  framework errors; see also `->job-exception-handler`."
+  [config]
+  (fn [ex]
+    (timbre/error ex)
+    (when-let [dsn (config/sentry-dsn config)]
+      (sentry-capture dsn ex (ex-data ex)))
+    (System/exit 1)))
+
 (defn ->job-exception-handler
   "Exception handler for job thunks; log error then send to Sentry if configured
    Returns a map of failure info for consumption by worker"

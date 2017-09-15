@@ -7,6 +7,7 @@
             (overseer
               [config :as config]
               [core :as core]
+              [errors :as errors]
               [executor :as exc]
               [heartbeat :as heartbeat])))
 
@@ -24,14 +25,18 @@
   (timbre/info "Worker starting")
   (let [ready-jobs (atom #{})
         current-job (atom nil)
+        fatal-ex-handler (errors/->fatal-ex-handler config)
 
         detector-fut
         (future-loop
-          (reset! ready-jobs (ready-job-info store job-handlers))
-          (Thread/sleep (config/detector-sleep-time config)))
+          (errors/try-thunk
+            fatal-ex-handler
+            (fn []
+              (reset! ready-jobs (ready-job-info store job-handlers))
+              (Thread/sleep (config/detector-sleep-time config)))))
 
         executor-fut
-        (exc/start-executor config store job-handlers ready-jobs current-job)
+        (exc/start-executor fatal-ex-handler config store job-handlers ready-jobs current-job)
 
         heartbeat-fut
         (heartbeat/start-heartbeat config store current-job)

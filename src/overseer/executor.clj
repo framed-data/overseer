@@ -59,22 +59,29 @@
       :unstarted (core/reset-job store job-id))
     exit-status-map))
 
+(defn tick
+  "Internal: Run a single 'tick' of the executor - attempt to reserve and run a job"
+  [config store job-handlers ready-jobs current-job]
+  (if (empty? @ready-jobs)
+    (do (timbre/info "No handleable ready-jobs found. Waiting.")
+        (Thread/sleep (config/sleep-time config)))
+    (do (timbre/info "Found" (count @ready-jobs) "handleable jobs.")
+        (let [{job-id :job/id :as job} (rand-nth (seq @ready-jobs))]
+          (swap! ready-jobs disj job)
+
+          (timbre/info (format "Reserving job %s (%s)" job-id (:job/type job)))
+          (if-let [reserved-job (core/reserve-job store job-id)]
+            (do (timbre/info "Reserved job" job-id)
+                (reset! current-job job)
+                (run-job config store job-handlers job)
+                (reset! current-job nil))
+            (timbre/info "Failed to reserve; skipping job" job-id))))))
+
 (defn start-executor
   "Construct an executor future that will perpetually run a scheduler over
    the `ready-jobs` atom to reserve and run jobs."
-  [config store job-handlers ready-jobs current-job]
+  [ex-handler config store job-handlers ready-jobs current-job]
   (future-loop
-    (if (empty? @ready-jobs)
-      (do (timbre/info "No handleable ready-jobs found. Waiting.")
-          (Thread/sleep (config/sleep-time config)))
-      (do (timbre/info "Found" (count @ready-jobs) "handleable jobs.")
-          (let [{job-id :job/id :as job} (rand-nth (seq @ready-jobs))]
-            (swap! ready-jobs disj job)
-
-            (timbre/info (format "Reserving job %s (%s)" job-id (:job/type job)))
-            (if-let [reserved-job (core/reserve-job store job-id)]
-              (do (timbre/info "Reserved job" job-id)
-                  (reset! current-job job)
-                  (run-job config store job-handlers job)
-                  (reset! current-job nil))
-              (timbre/info "Failed to reserve; skipping job" job-id)))))))
+    (errors/try-thunk
+      ex-handler
+      (fn [] (tick config store job-handlers ready-jobs current-job)))))
