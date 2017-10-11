@@ -196,19 +196,19 @@
   (finish-job [this job-id]
     (let [where-map {:status (:started status-code)}
           set-map {:status (:finished status-code)}]
-      (-> (update-job db-spec job-id where-map set-map)
-          (assert (str "Update failed for job: " job-id)))))
+      (when-not (update-job db-spec job-id where-map set-map)
+        (throw (ex-info "Job update failed" {:job/id job-id})))))
 
   (fail-job [this job-id failure]
     (let [where-map {:status (:started status-code)}
           set-map {:status (:failed status-code)
                    :failure (pr-str failure)}]
-      (-> (update-job db-spec job-id where-map set-map)
-          (assert (str "Update failed for job: " job-id)))))
+      (when-not (update-job db-spec job-id where-map set-map)
+        (throw (ex-info "Job update failed" {:job/id job-id})))))
 
   (heartbeat-job [this job-id]
-    (-> (update-job db-spec job-id {} {:heartbeat (core/heartbeat)})
-        (assert (str "Update failed for job: " job-id))))
+    (when-not (update-job db-spec job-id {} {:heartbeat (core/heartbeat)})
+      (throw (ex-info "Job update failed" {:job/id job-id}))))
 
   (abort-job [this job-id]
     (let [job-ids (cons job-id (dependents db-spec job-id))]
@@ -223,6 +223,7 @@
     (let [where-map {:status (:started status-code)}
           set-map {:status (:unstarted status-code)
                    :heartbeat (core/heartbeat)}]
+      ; Okay to ignore CAS failure here
       (update-job db-spec job-id where-map set-map)))
 
   (jobs-ready [this]
