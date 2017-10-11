@@ -174,6 +174,18 @@
           "VARCHAR" "job_id"
           "VARCHAR" "dep_id")))))
 
+(deftest test-update-failures
+  (let [{:keys [db-spec] :as store} (test-utils/jdbc-store)
+        {job-id :job/id :as job} (test-utils/job {:job/type :foo})
+        _ (do
+            (core/transact-graph store (api/simple-graph job))
+            (core/reserve-job store job-id))]
+    (is (= 1 (store/query-lock-version db-spec job-id)))
+    (with-redefs [store/query-lock-version (constantly 0)]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Job update failed" (core/finish-job store job-id)))
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Job update failed" (core/fail-job store job-id {})))
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Job update failed" (core/heartbeat-job store job-id))))))
+
 (deftest test-protocol
   (store-test/test-protocol test-utils/jdbc-store))
 
