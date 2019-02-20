@@ -21,4 +21,6 @@
                  [clj-time "0.12.2"]
                  [mysql/mysql-connector-java "5.1.41"]]
   :plugins [[codox "0.8.13"]]
-  :codox {:output-dir "doc/api"})
+  :codox {:output-dir "doc/api"}
+  :deploy-repositories [["releases"  {:sign-releases false :url "https://clojars.org/repo"}]
+                        ["snapshots" {:sign-releases false :url "https://clojars.org/repo"}]])
