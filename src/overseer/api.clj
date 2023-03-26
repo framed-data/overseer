@@ -31,7 +31,8 @@
   (case (config/store-type config)
     :datomic (store.datomic/store (:uri (config/datomic-config config)))
     :mysql (store.jdbc/store (config/jdbc-config config))
-    :h2 (store.jdbc/store (config/jdbc-config config))))
+    :h2 (store.jdbc/store (config/jdbc-config config))
+    :sqlite (store.jdbc/store (config/jdbc-config config))))
 
 (defn start
   "Start the system inline given a config map, a Store implementation (see `store`)

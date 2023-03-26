@@ -4,7 +4,7 @@
   of configuration options are:
 
     :store
-      :adapter - Required String backend store type to connect to. One of datomic, mysql, h2
+      :adapter - Required String backend store type to connect to. One of datomic, mysql, h2, sqlite
       :config - options to configure the selected adapter
         If Datomic:
           - map of :uri, required connection String, ex: \"datomic:free://localhost:4334/overseer\"
@@ -46,7 +46,7 @@
     (assert (:uri cfg) ":uri is required when using Datomic")
     cfg))
 
-(def jdbc-adapters #{:mysql :h2})
+(def jdbc-adapters #{:mysql :h2 :sqlite})
 
 (defn jdbc-config [config]
   (let [db-spec (get-in config [:store :config])

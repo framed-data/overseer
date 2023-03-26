@@ -19,7 +19,8 @@
                  [com.h2database/h2 "1.4.195"]
                  [com.velisco/herbert "0.7.0"]
                  [clj-time "0.12.2"]
-                 [mysql/mysql-connector-java "5.1.41"]]
+                 [mysql/mysql-connector-java "5.1.41"]
+                 [org.xerial/sqlite-jdbc "3.41.2.1"]]
   :plugins [[codox "0.8.13"]]
   :codox {:output-dir "doc/api"}
   :deploy-repositories [["clojars" {:sign-releases false :url "https://clojars.org/repo"}]])

@@ -158,7 +158,8 @@
   (let [msg (.getMessage ex)]
     (case adapter
       :mysql (instance? MySQLIntegrityConstraintViolationException ex)
-      :h2 (re-find #"^Unique index or primary key violation" msg))))
+      :h2 (string/starts-with? msg "Unique index or primary key violation")
+      :sqlite (string/starts-with? msg "[SQLITE_CONSTRAINT_PRIMARYKEY]"))))
 
 (defrecord JdbcStore [adapter db-spec]
   core/Store
