@@ -20,19 +20,26 @@
               [core :as core]
               [executor :as exc]
               [worker :as worker])
-            [overseer.store.datomic :as store.datomic]
-            [overseer.store.jdbc :as store.jdbc]
             [loom.graph :as loom]))
+
+(def ^:private stores
+  {:datomic {:store-fn 'overseer.store.datomic/store,
+             :config-fn (comp :uri config/datomic-config)}
+   :mysql   {:store-fn 'overseer.store.jdbc/store,
+             :config-fn config/jdbc-config}
+   :h2      {:store-fn 'overseer.store.jdbc/store,
+             :config-fn config/jdbc-config}
+   :sqlite  {:store-fn 'overseer.store.jdbc/store,
+             :config-fn config/jdbc-config}})
 
 (defn store
   "Return a Store implementation based on the store type and type-specific
   configuration in `config` map"
   [config]
-  (case (config/store-type config)
-    :datomic (store.datomic/store (:uri (config/datomic-config config)))
-    :mysql (store.jdbc/store (config/jdbc-config config))
-    :h2 (store.jdbc/store (config/jdbc-config config))
-    :sqlite (store.jdbc/store (config/jdbc-config config))))
+  (let [{:keys [store-fn config-fn]} (stores (config/store-type config))
+        _ (require (symbol (namespace store-fn)))
+        store-fn (resolve store-fn)]
+    (store-fn (config-fn config))))
 
 (defn start
   "Start the system inline given a config map, a Store implementation (see `store`)

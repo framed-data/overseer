@@ -11,8 +11,7 @@
             (loom graph)
             (overseer
               [core :as core]
-              [util :as util]))
-  (:import com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException))
+              [util :as util])))
 
 (def status-code
   {:unstarted 0
@@ -157,7 +156,8 @@
 (defn dup-primary-key-ex? [adapter ex]
   (let [msg (.getMessage ex)]
     (case adapter
-      :mysql (instance? MySQLIntegrityConstraintViolationException ex)
+      :mysql (let [ex-class (Class/forName "com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException")]
+               (instance? ex-class ex))
       :h2 (string/starts-with? msg "Unique index or primary key violation")
       :sqlite (string/starts-with? msg "[SQLITE_CONSTRAINT_PRIMARYKEY]"))))
 
