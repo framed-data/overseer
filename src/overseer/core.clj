@@ -1,7 +1,6 @@
 (ns ^:no-doc overseer.core
   "Internal core functions"
   (:require [clojure.set :as set]
-            [datomic.api :as d]
             [framed.std.core :as std]
             [miner.herbert :as h]
             (loom derived graph)))
