@@ -10,8 +10,6 @@ Overseer is available on Clojars, and can be included in your leiningen `project
 
 [![Clojars Project](http://clojars.org/io.framed/overseer/latest-version.svg)](http://clojars.org/io.framed/overseer)
 
-![Build Status](https://circleci.com/gh/framed-data/overseer.svg?style=shield&circle-token=caf3faafe0f68217721b26e571a84bc1088b5801)
-
 ## Usage
 If you're looking to get up and running in just a few minutes, check out the [quickstart](https://github.com/framed-data/overseer/wiki/Quickstart).
 The [User Guide](https://www.gitbook.com/book/framed/overseer/) contains comprehensive information on installing, configuring, and using Overseer. Finally, you can find nitty-gritty details in the [API docs](https://framed-data.github.io/overseer).
